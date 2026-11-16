@@ -1,15 +1,18 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
-import { AvatarPicker } from '../../components/AvatarPicker';
-import { Arrow, Button, En, PageHeader } from '../../components/ui';
-import { GRAMMAR, findWord } from '../../data/curriculum';
-import { DEMO_PIN } from '../../data/seed';
+import { AVATAR_COLORS, AVATAR_EMOJI, AVATAR_GEAR, AvatarPicker } from '../../components/AvatarPicker';
+import { GradePicker, gradeLabel } from '../../components/GradePicker';
+import { Arrow, Avatar, Button, PageHeader } from '../../components/ui';
+import { GRADE_INFO, GRAMMAR, findWord, lessonOrder } from '../../data/curriculum';
+import { DEMO_CHILD_CODE, DEMO_PIN } from '../../data/seed';
+import { buildAiReport } from '../../domain/aiReport';
+import { findChild } from '../../domain/household';
 import { isValidPin } from '../../domain/parentAuth';
-import { weeklySummary } from '../../domain/progress';
+import { gradeOf, isLessonComplete, weeklySummary } from '../../domain/progress';
 import { balance, earnedThisWeek } from '../../domain/tickets';
-import type { Reward } from '../../domain/types';
+import type { ChildRecord, Grade, Lang, LearnerProfile, Reward } from '../../domain/types';
 import { navigate } from '../../lib/router';
-import { useStore } from '../../state/store';
+import { ChildScope, useStore } from '../../state/store';
 import { REASON_META, SKILL_META } from '../quest/meta';
 import { STATUS_META, useDateFormat } from '../tickets/TicketPouch';
 import { WeeklyPlan } from '../week/WeeklyPlan';
@@ -75,11 +78,25 @@ function Overview() {
           `${name} completed ${s.questsCompleted} learning ${s.questsCompleted === 1 ? 'quest' : 'quests'} this week${grammar.length ? ` and practised ${grammar.join(' and ')}` : ''}.`,
         );
 
+  const grade = gradeOf(state);
+  const order = lessonOrder(grade);
+  const planDone = order.filter((id) => isLessonComplete(state.progress, id)).length;
+
   return (
     <>
       <div className="notice">
         <span aria-hidden="true">🌟</span>
         <p>{message}</p>
+      </div>
+      <div className="notice notice-plan">
+        <span aria-hidden="true">📘</span>
+        <p>
+          <b>{gradeLabel(grade, lang)} · {lang === 'he' ? GRADE_INFO[grade].stageHe : GRADE_INFO[grade].stage}</b>
+          <br />
+          {lang === 'he' ? GRADE_INFO[grade].focusHe : GRADE_INFO[grade].focus}
+          <br />
+          {t(`התקדמות בתוכנית: ${planDone} מתוך ${order.length} משימות.`, `Plan progress: ${planDone} of ${order.length} quests.`)}
+        </p>
       </div>
       {pending > 0 && (
         <div className="notice notice-coral">
@@ -371,44 +388,255 @@ function Tickets() {
   );
 }
 
-function ParentSettings() {
-  const { state, t, actions } = useStore();
-  const profile = state.profile;
-  const [name, setName] = useState(profile?.name ?? '');
-  const [pin, setPin] = useState('');
-  const [pinMsg, setPinMsg] = useState('');
-  const [confirmReset, setConfirmReset] = useState<'all' | 'demo' | null>(null);
-  if (!profile) return null;
+// ───────────────────────── Children: add, edit (grade, code…), remove ─────────────────────────
+
+type CodeMode = 'keep' | 'none' | 'set';
+
+function ChildForm({ initial, onDone }: { initial?: ChildRecord; onDone: () => void }) {
+  const { household, t, lang, actions } = useStore();
+  const n = household.children.length;
+  const [name, setName] = useState(initial?.profile.name ?? '');
+  const [grade, setGrade] = useState<Grade>(initial?.profile.grade ?? 4);
+  const [avatar, setAvatar] = useState<LearnerProfile['avatar']>(
+    initial?.profile.avatar ?? { emoji: AVATAR_EMOJI[(n * 5 + 2) % AVATAR_EMOJI.length], color: AVATAR_COLORS[(n + 1) % AVATAR_COLORS.length], gear: AVATAR_GEAR[n % AVATAR_GEAR.length] },
+  );
+  const [goal, setGoal] = useState<10 | 15 | 20>(initial?.profile.dailyGoalMinutes ?? 15);
+  const [codeMode, setCodeMode] = useState<CodeMode>(initial ? 'keep' : 'none');
+  const [code, setCode] = useState('');
+  const [error, setError] = useState('');
+  const hadCode = initial?.codeHash != null;
+  const formId = initial?.id ?? 'new';
+
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) return setError(t('צריך כינוי.', 'A nickname is needed.'));
+    if (codeMode === 'set' && !isValidPin(code)) return setError(t('הקוד חייב להיות 4 ספרות.', 'The code must be 4 digits.'));
+    try {
+      if (initial) {
+        actions.updateChild(initial.id, {
+          profile: { name: name.trim(), grade, avatar, dailyGoalMinutes: goal },
+          ...(codeMode === 'keep' ? {} : { code: codeMode === 'set' ? code : null }),
+        });
+      } else {
+        actions.addChild(
+          { name: name.trim(), grade, avatar, favoriteTheme: 'Animals', dailyGoalMinutes: goal, createdAt: new Date().toISOString() },
+          codeMode === 'set' ? code : null,
+        );
+      }
+      onDone();
+    } catch {
+      setError(t('לא הצלחנו לשמור. בדקו את הפרטים ונסו שוב.', 'Could not save. Check the details and try again.'));
+    }
+  };
+
+  const codeOptions: { id: CodeMode; label: string }[] = initial
+    ? [
+        ...(hadCode ? [{ id: 'keep' as const, label: t('להשאיר את הקוד הנוכחי', 'Keep the current code') }] : [{ id: 'keep' as const, label: t('בלי קוד (כמו עכשיו)', 'No code (as now)') }]),
+        ...(hadCode ? [{ id: 'none' as const, label: t('להסיר את הקוד', 'Remove the code') }] : []),
+        { id: 'set', label: hadCode ? t('לקבוע קוד חדש', 'Set a new code') : t('לקבוע קוד', 'Set a code') },
+      ]
+    : [
+        { id: 'none', label: t('בלי קוד', 'No code') },
+        { id: 'set', label: t('לקבוע קוד', 'Set a code') },
+      ];
+
+  return (
+    <form className="child-form" onSubmit={submit}>
+      <label htmlFor={`cn-${formId}`} className="field-label">{t('כינוי', 'Nickname')}</label>
+      <input id={`cn-${formId}`} className="text-input" value={name} maxLength={20} onChange={(e) => setName(e.target.value)} autoComplete="off" />
+      <GradePicker value={grade} onChange={setGrade} legend={t('כיתה (קובעת את תוכנית הלימוד)', 'Grade (sets the learning plan)')} />
+      {initial && grade !== initial.profile.grade && (
+        <p className="notice">
+          <span aria-hidden="true">ℹ️</span>
+          <span>{t(`מעבר ל${gradeLabel(grade, lang)} פותח את התוכנית של הכיתה הזו מההתחלה. הכרטיסים, המילים, התגים וההתקדמות בתוכנית הקודמת נשמרים, וחוזרים אם תחזירו את הכיתה.`, `Moving to ${gradeLabel(grade, lang)} opens that grade's plan from its start. Tickets, words, badges and progress in the current plan are kept, and come back if you switch back.`)}</span>
+        </p>
+      )}
+      <AvatarPicker value={avatar} onChange={setAvatar} />
+      <fieldset className="pick-group">
+        <legend>{t('יעד יומי', 'Daily goal')}</legend>
+        <div className="pick-row">
+          {([10, 15, 20] as const).map((m) => (
+            <button key={m} type="button" className={`pick wide ${goal === m ? 'on' : ''}`} aria-pressed={goal === m} onClick={() => setGoal(m)}>
+              {m} {t('דק׳', 'min')}
+            </button>
+          ))}
+        </div>
+      </fieldset>
+      <fieldset className="pick-group">
+        <legend>🔒 {t('קוד כניסה לילד/ה (4 ספרות)', 'Child sign-in code (4 digits)')}</legend>
+        <p className="soft-note">{t('כשכמה ילדים משתמשים באותו מכשיר, קוד אישי שומר שכל אחד ייכנס רק לפרופיל שלו.', 'When several children share this device, a personal code keeps each child in their own profile.')}</p>
+        <div className="pick-row">
+          {codeOptions.map((o) => (
+            <button key={o.id} type="button" className={`pick wide ${codeMode === o.id ? 'on' : ''}`} aria-pressed={codeMode === o.id} onClick={() => setCodeMode(o.id)}>
+              {o.label}
+            </button>
+          ))}
+        </div>
+        {codeMode === 'set' && (
+          <>
+            <label htmlFor={`cc-${formId}`} className="field-label">{t('קוד חדש', 'New code')}</label>
+            <input id={`cc-${formId}`} className="text-input pin" dir="ltr" type="password" inputMode="numeric" autoComplete="off" maxLength={4} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} />
+          </>
+        )}
+      </fieldset>
+      {error && <p className="form-error" role="alert">{error}</p>}
+      <div className="row-center">
+        <Button variant="ghost" onClick={onDone}>{t('ביטול', 'Cancel')}</Button>
+        <Button type="submit">{initial ? t('שמירה', 'Save') : t('הוספת ילד/ה', 'Add child')}</Button>
+      </div>
+    </form>
+  );
+}
+
+function Children({ onManage }: { onManage: (id: string) => void }) {
+  const { household, activeChildId, t, lang, actions } = useStore();
+  const [editing, setEditing] = useState<string | 'new' | null>(null);
+  const [removing, setRemoving] = useState<string | null>(null);
+  const only = household.children.length <= 1;
 
   return (
     <>
       <section className="card">
-        <h2>🧒 {t('פרופיל הילד/ה', 'Child profile')}</h2>
-        <form
-          className="inline-form"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (name.trim()) actions.updateProfile({ name: name.trim().slice(0, 20) });
-          }}
-        >
-          <label htmlFor="child-name">{t('כינוי', 'Nickname')}</label>
-          <input id="child-name" className="text-input" value={name} maxLength={20} onChange={(e) => setName(e.target.value)} />
-          <Button type="submit" variant="secondary">{t('שמירה', 'Save')}</Button>
-        </form>
-        <AvatarPicker value={profile.avatar} onChange={(avatar) => actions.updateProfile({ avatar })} />
-        <fieldset className="pick-group">
-          <legend>{t('יעד יומי', 'Daily goal')}</legend>
-          <div className="pick-row">
-            {([10, 15, 20] as const).map((m) => (
-              <button key={m} type="button" className={`pick wide ${profile.dailyGoalMinutes === m ? 'on' : ''}`} aria-pressed={profile.dailyGoalMinutes === m} onClick={() => actions.updateProfile({ dailyGoalMinutes: m })}>
-                {m} {t('דק׳', 'min')}
-              </button>
-            ))}
-          </div>
-        </fieldset>
+        <h2>👪 {t('הילדים במכשיר הזה', 'Children on this device')}</h2>
+        <ul className="list">
+          {household.children.map((c) => {
+            const order = lessonOrder(c.profile.grade);
+            const done = order.filter((id) => isLessonComplete(c.progress, id)).length;
+            if (editing === c.id) {
+              return (
+                <li key={c.id} className="list-row block">
+                  <ChildForm initial={c} onDone={() => setEditing(null)} />
+                </li>
+              );
+            }
+            return (
+              <li key={c.id} className="list-row tall">
+                <Avatar size={44} avatar={c.profile.avatar} />
+                <span className="list-main">
+                  <b><bdi>{c.profile.name}</bdi>{c.id === activeChildId ? ` · ${t('משחק/ת עכשיו', 'playing now')}` : ''}</b>
+                  <small>
+                    {gradeLabel(c.profile.grade, lang)} · {done}/{order.length} {t('משימות', 'quests')} · 🎟️ {balance(c.tickets)} · {c.codeHash ? `🔒 ${t('עם קוד', 'code set')}` : t('בלי קוד', 'no code')}
+                  </small>
+                  <small>{lang === 'he' ? GRADE_INFO[c.profile.grade].stageHe : GRADE_INFO[c.profile.grade].stage}</small>
+                </span>
+                <span className="row-actions">
+                  {removing === c.id ? (
+                    <>
+                      <span className="soft-note">{t('כל ההתקדמות של הילד/ה תימחק לצמיתות.', 'All of this child’s progress will be deleted permanently.')}</span>
+                      <Button variant="ghost" onClick={() => setRemoving(null)}>{t('ביטול', 'Cancel')}</Button>
+                      <Button variant="coral" onClick={() => { actions.removeChild(c.id); setRemoving(null); }}>{t('כן, להסיר', 'Yes, remove')}</Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button variant="secondary" onClick={() => onManage(c.id)}>📊 {t('לוח', 'Dashboard')}</Button>
+                      <Button variant="ghost" onClick={() => setEditing(c.id)}>{t('עריכה', 'Edit')}</Button>
+                      {!only && <Button variant="ghost" onClick={() => setRemoving(c.id)}>{t('הסרה', 'Remove')}</Button>}
+                    </>
+                  )}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
       </section>
       <section className="card">
-        <h2>🌐 {t('שפה ונגישות', 'Language and accessibility')}</h2>
+        <h2>➕ {t('הוספת ילד/ה', 'Add a child')}</h2>
+        {editing === 'new' ? (
+          <ChildForm onDone={() => setEditing(null)} />
+        ) : (
+          <>
+            <p className="soft-note">{t('לכל ילד/ה התקדמות, כרטיסים, משאלות ותוכנית לפי הכיתה — הכול נפרד. הפרסים בלוח המשאלות משותפים.', 'Each child gets their own progress, tickets, wishes and grade plan. The rewards on the Wish Board are shared.')}</p>
+            <Button onClick={() => setEditing('new')}>➕ {t('ילד/ה חדש/ה', 'New child')}</Button>
+          </>
+        )}
+      </section>
+    </>
+  );
+}
+
+// ───────────────────────── AI report ─────────────────────────
+
+function AiReport() {
+  const { state, t, lang } = useStore();
+  const [includeName, setIncludeName] = useState(false);
+  const [answerLang, setAnswerLang] = useState<Lang>(lang);
+  const [status, setStatus] = useState('');
+  const area = useRef<HTMLTextAreaElement>(null);
+  const text = buildAiReport(state, { includeName, answerLang, now: new Date() });
+  const name = state.profile?.name ?? '';
+  const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setStatus(t('הדוח הועתק. עכשיו אפשר להדביק אותו בצ׳אט עם עוזר AI.', 'Report copied. Now paste it into a chat with an AI assistant.'));
+    } catch {
+      area.current?.select();
+      setStatus(t('הדוח מסומן — הקישו Ctrl+C כדי להעתיק.', 'The report is selected — press Ctrl+C to copy.'));
+    }
+  };
+  const download = () => {
+    const blob = new Blob([text], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `english-quest-report-grade${state.profile?.grade ?? ''}-${new Date().toISOString().slice(0, 10)}.md`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+  const share = async () => {
+    try {
+      await navigator.share({ title: t('דוח אנגלית', 'English learning report'), text });
+    } catch {
+      // cancelled or not supported
+    }
+  };
+
+  return (
+    <>
+      <section className="card">
+        <h2>🤖 {t('דוח לבינה מלאכותית', 'Report for an AI assistant')} · <bdi>{name}</bdi></h2>
+        <p>{t('הדוח מסכם את ההתקדמות, הדיוק לפי מיומנות ודקדוק, מילים לחיזוק ודוגמאות כתיבה, יחד עם בקשה מוכנה. העתיקו או שתפו אותו לעוזר AI (למשל Claude) כדי לקבל המלצות על מה כדאי להתמקד.', 'The report sums up progress, accuracy by skill and grammar, words to strengthen and writing samples, with a ready-made request. Copy or share it to an AI assistant (for example Claude) to get advice on what to focus on.')}</p>
+        <label className="toggle">
+          <input type="checkbox" checked={includeName} onChange={(e) => setIncludeName(e.target.checked)} />
+          <span>{t('לכלול את הכינוי של הילד/ה (ברירת המחדל: "my child")', 'Include the child’s nickname (default: “my child”)')}</span>
+        </label>
+        <fieldset className="pick-group">
+          <legend>{t('באיזו שפה לבקש את התשובה?', 'Language for the answer')}</legend>
+          <div className="pick-row">
+            <button type="button" className={`pick wide ${answerLang === 'he' ? 'on' : ''}`} aria-pressed={answerLang === 'he'} onClick={() => setAnswerLang('he')}>עברית</button>
+            <button type="button" className={`pick wide ${answerLang === 'en' ? 'on' : ''}`} aria-pressed={answerLang === 'en'} onClick={() => setAnswerLang('en')}>English</button>
+          </div>
+        </fieldset>
+        <div className="row-center">
+          <Button onClick={copy}>📋 {t('העתקה', 'Copy')}</Button>
+          {canShare && <Button variant="secondary" onClick={share}>📤 {t('שיתוף', 'Share')}</Button>}
+          <Button variant="ghost" onClick={download}>⬇️ {t('הורדה (.md)', 'Download (.md)')}</Button>
+        </div>
+        {status && <p className="soft-note" role="status">{status}</p>}
+        <p className="soft-note">🔒 {t('הדוח נוצר במכשיר ולא נשלח לשום מקום עד שתבחרו להעתיק או לשתף. אין בו פרטי קשר — עברו עליו לפני השיתוף.', 'The report is made on this device and goes nowhere until you copy or share it. It has no contact details — read it before you share.')}</p>
+      </section>
+      <section className="card">
+        <h2>👀 {t('תצוגה מקדימה', 'Preview')}</h2>
+        <textarea ref={area} className="text-input report-text" dir="ltr" lang="en" readOnly value={text} rows={18} aria-label={t('תוכן הדוח', 'Report text')} />
+      </section>
+    </>
+  );
+}
+
+function ParentSettings() {
+  const { state, t, actions } = useStore();
+  const [pin, setPin] = useState('');
+  const [pinMsg, setPinMsg] = useState('');
+  const [confirmReset, setConfirmReset] = useState<'all' | 'demo' | null>(null);
+  if (!state.profile) return null;
+
+  return (
+    <>
+      <section className="card">
+        <h2>🌐 {t('שפה ונגישות', 'Language and accessibility')} · <bdi>{state.profile.name}</bdi></h2>
         <fieldset className="pick-group">
           <legend>{t('שפת הממשק וכיוון', 'Interface language and direction')}</legend>
           <div className="pick-row">
@@ -451,8 +679,8 @@ function ParentSettings() {
           <div className="feedback feedback-clue" role="alertdialog" aria-label={t('אישור איפוס', 'Confirm reset')}>
             <strong>
               {confirmReset === 'all'
-                ? t('למחוק את כל ההתקדמות, הכרטיסים והקוד ולהתחיל מחדש?', 'Delete all progress, tickets and the PIN, and start again?')
-                : t(`להחליף את הנתונים בנתוני הדגמה? (קוד ההדגמה: ${DEMO_PIN})`, `Replace everything with demo data? (Demo PIN: ${DEMO_PIN})`)}
+                ? t('למחוק את כל הילדים, ההתקדמות, הכרטיסים והקוד ולהתחיל מחדש?', 'Delete every child, all progress, tickets and the PIN, and start again?')
+                : t(`להחליף את כל הנתונים (של כל הילדים) בנתוני הדגמה? (קוד הורים: ${DEMO_PIN}, הקוד של Maya: ${DEMO_CHILD_CODE})`, `Replace everything (for every child) with demo data? (Parent PIN: ${DEMO_PIN}, Maya’s code: ${DEMO_CHILD_CODE})`)}
             </strong>
             <div className="row-center">
               <Button variant="ghost" onClick={() => setConfirmReset(null)}>{t('ביטול', 'Cancel')}</Button>
@@ -478,19 +706,24 @@ function ParentSettings() {
   );
 }
 
-type Tab = 'overview' | 'requests' | 'rewards' | 'tickets' | 'plan' | 'settings';
+type Tab = 'overview' | 'requests' | 'rewards' | 'tickets' | 'plan' | 'report' | 'children' | 'settings';
 
 export function ParentArea() {
-  const { state, t, parentUnlocked, actions } = useStore();
+  const { household, activeChildId, t, lang, parentUnlocked, actions } = useStore();
   const [tab, setTab] = useState<Tab>('overview');
+  const [managedId, setManagedId] = useState<string | null>(activeChildId);
   if (!parentUnlocked) return <PinGate />;
-  const pending = state.requests.filter((r) => r.status === 'pending').length;
+  const child = findChild(household, managedId) ?? household.children[0];
+  if (!child) return null;
+  const pending = child.requests.filter((r) => r.status === 'pending').length;
   const tabs: { id: Tab; label: string; emoji: string; badge?: number }[] = [
     { id: 'overview', label: t('סיכום', 'Overview'), emoji: '📊' },
     { id: 'requests', label: t('בקשות', 'Requests'), emoji: '💌', badge: pending },
     { id: 'rewards', label: t('פרסים', 'Rewards'), emoji: '🌠' },
     { id: 'tickets', label: t('כרטיסים', 'Tickets'), emoji: '🎟️' },
     { id: 'plan', label: t('תוכנית', 'Plan'), emoji: '📅' },
+    { id: 'report', label: t('דוח AI', 'AI report'), emoji: '🤖' },
+    { id: 'children', label: t('ילדים', 'Children'), emoji: '👪' },
     { id: 'settings', label: t('הגדרות', 'Settings'), emoji: '⚙️' },
   ];
   const panels: Record<Tab, ReactNode> = {
@@ -499,13 +732,22 @@ export function ParentArea() {
     rewards: <Rewards />,
     tickets: <Tickets />,
     plan: <WeeklyPlan forParent />,
+    report: <AiReport />,
+    children: (
+      <Children
+        onManage={(id) => {
+          setManagedId(id);
+          setTab('overview');
+        }}
+      />
+    ),
     settings: <ParentSettings />,
   };
 
   return (
     <div className="page parent">
       <div className="parent-top">
-        <PageHeader emoji="👪" title={t('לוח ההורים', 'Parent dashboard')} sub={<ParentSub />} />
+        <PageHeader emoji="👪" title={t('לוח ההורים', 'Parent dashboard')} sub={t('הנתונים נשמרים במכשיר הזה בלבד.', 'Data is stored on this device only.')} />
         <Button
           variant="ghost"
           onClick={() => {
@@ -516,6 +758,24 @@ export function ParentArea() {
           🔒 {t('נעילה ויציאה', 'Lock and exit')}
         </Button>
       </div>
+      <div className="child-switch" role="group" aria-label={t('בחירת ילד/ה', 'Choose a child')}>
+        {household.children.map((c) => {
+          const waiting = c.requests.filter((r) => r.status === 'pending').length;
+          return (
+            <button key={c.id} type="button" className={`child-chip ${c.id === child.id ? 'on' : ''}`} aria-pressed={c.id === child.id} onClick={() => setManagedId(c.id)}>
+              <Avatar size={30} avatar={c.profile.avatar} />
+              <span>
+                <b><bdi>{c.profile.name}</bdi></b>
+                <small>{gradeLabel(c.profile.grade, lang)}</small>
+              </span>
+              {waiting > 0 && <span className="tab-badge" aria-label={t(`${waiting} משאלות ממתינות`, `${waiting} wishes waiting`)}>{waiting}</span>}
+            </button>
+          );
+        })}
+        <button type="button" className="child-chip add" onClick={() => setTab('children')}>
+          <span aria-hidden="true">➕</span> {t('ילד/ה', 'Child')}
+        </button>
+      </div>
       <div className="week-tabs" role="tablist" aria-label={t('לשוניות לוח ההורים', 'Parent dashboard tabs')}>
         {tabs.map((x) => (
           <button key={x.id} type="button" role="tab" id={`tab-${x.id}`} aria-selected={tab === x.id} className={`week-tab ${tab === x.id ? 'on' : ''}`} onClick={() => setTab(x.id)}>
@@ -524,18 +784,11 @@ export function ParentArea() {
           </button>
         ))}
       </div>
-      <div role="tabpanel" aria-labelledby={`tab-${tab}`} className="parent-panel">
-        {panels[tab]}
-      </div>
+      <ChildScope key={child.id} childId={child.id}>
+        <div role="tabpanel" aria-labelledby={`tab-${tab}`} className="parent-panel">
+          {panels[tab]}
+        </div>
+      </ChildScope>
     </div>
-  );
-}
-
-function ParentSub() {
-  const { state, t } = useStore();
-  return (
-    <>
-      {t('הנתונים נשמרים במכשיר הזה בלבד.', 'Data is stored on this device only.')} <En>{state.profile?.name}</En>
-    </>
   );
 }

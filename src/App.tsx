@@ -7,6 +7,7 @@ import { BadgeCollection, WordCollection } from './features/collection/Collectio
 import { IslandMap } from './features/island/IslandMap';
 import { Onboarding } from './features/onboarding/Onboarding';
 import { ParentArea } from './features/parent/ParentArea';
+import { ChildPicker } from './features/players/ChildPicker';
 import { ActivityRunner } from './features/quest/ActivityRunner';
 import { SessionDone, TodayQuest } from './features/quest/TodayQuest';
 import { Settings } from './features/settings/Settings';
@@ -18,7 +19,7 @@ import { useStore } from './state/store';
 const STEPS: StepId[] = ['warmup', 'learn', 'mission', 'create', 'bonus'];
 
 export function App() {
-  const { state, t, lang } = useStore();
+  const { state, household, activeChildId, t, lang, actions } = useStore();
   const route = useRoute();
   const { settings } = state;
 
@@ -30,9 +31,22 @@ export function App() {
     root.classList.toggle('large-text', settings.largeText);
   }, [lang, settings.reducedMotion, settings.largeText]);
 
-  if (!state.profile) return <Onboarding />;
-
   const [page, a, b] = route;
+  if (household.children.length === 0) return <Onboarding />;
+  if (!activeChildId || !state.profile) {
+    // Nobody is signed in: only the child picker and the (PIN-protected) parent area are reachable.
+    if (page === 'parent') {
+      return (
+        <div className="shell">
+          <main id="main" className="content" tabIndex={-1}>
+            <ParentArea />
+          </main>
+        </div>
+      );
+    }
+    return <ChildPicker />;
+  }
+  const canSwitch = household.children.length > 1 || household.children.some((c) => c.codeHash !== null);
   if (page === 'play' && a && STEPS.includes(b as StepId)) {
     return <ActivityRunner key={`${a}-${b}`} lessonId={a} step={b as StepId} />;
   }
@@ -74,6 +88,20 @@ export function App() {
           <button type="button" className="pill-btn" onClick={() => navigate('tickets')} aria-label={t('נרתיק הכרטיסים', 'Ticket pouch')}>
             <TicketPill amount={balance(state.tickets)} label={t('כרטיסי מסע', 'Quest Tickets')} />
           </button>
+          {canSwitch && (
+            <button
+              type="button"
+              className="icon-btn"
+              onClick={() => {
+                actions.signOutChild();
+                navigate('');
+              }}
+              aria-label={t('החלפת שחקן/ית', 'Switch player')}
+              title={t('החלפת שחקן/ית', 'Switch player')}
+            >
+              <span aria-hidden="true">👥</span>
+            </button>
+          )}
           <button type="button" className="icon-btn" onClick={() => navigate('settings')} aria-label={t('הגדרות', 'Settings')}><span aria-hidden="true">⚙️</span></button>
           <button type="button" className="icon-btn" onClick={() => navigate('parent')} aria-label={t('אזור ההורים', 'Parent area')}><span aria-hidden="true">👪</span></button>
         </div>

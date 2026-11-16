@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { En, PageHeader, SpeakButton } from '../../components/ui';
-import { WEEKS } from '../../data/curriculum';
-import { BADGES, MAX_ZONE_LEVEL, ZONE_LEVELS, masteredWordCount, wordMastery, zoneLevel } from '../../domain/progress';
+import { weeksFor } from '../../data/curriculum';
+import { MAX_ZONE_LEVEL, ZONE_LEVELS, badgesFor, gradeOf, masteredWordCount, wordMastery, zoneLevel } from '../../domain/progress';
 import type { ZoneId } from '../../domain/types';
 import { useStore } from '../../state/store';
 import { ZONES } from '../quest/meta';
@@ -12,6 +12,7 @@ export function WordCollection() {
   const [showHe, setShowHe] = useState<Record<string, boolean>>({});
   const stats = state.progress.wordStats;
   const metCount = Object.values(stats).filter((s) => s.seen > 0).length;
+  const WEEKS = weeksFor(gradeOf(state));
   const weeks = WEEKS.filter((w) => filter === 'all' || w.number === filter);
   const masteryLabel = [t('עוד לא נפגשנו', 'Not met yet'), t('נפגשנו', 'Met'), t('צומחת', 'Growing'), t('שולטים!', 'Mastered!')];
 
@@ -72,7 +73,9 @@ export function WordCollection() {
 
 export function BadgeCollection() {
   const { state, t, lang } = useStore();
-  const earned = new Map(state.progress.badges.map((b) => [b.id, b.at]));
+  const BADGES = badgesFor(gradeOf(state));
+  const all = new Map(state.progress.badges.map((b) => [b.id, b.at]));
+  const earned = new Map(BADGES.filter((b) => all.has(b.id)).map((b) => [b.id, all.get(b.id) as string]));
   const fmt = new Intl.DateTimeFormat(lang === 'he' ? 'he-IL' : 'en-GB', { day: 'numeric', month: 'short' });
 
   return (

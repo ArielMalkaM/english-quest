@@ -172,8 +172,14 @@ export interface Lesson {
   recap: string[];
 }
 
+/** School grade (כיתה ב׳–ו׳). Each grade has its own plan, following the Israeli MoE English curriculum. */
+export type Grade = 2 | 3 | 4 | 5 | 6;
+export const GRADES: Grade[] = [2, 3, 4, 5, 6];
+
 export interface WeeklyPlan {
   id: string;
+  /** Grade this week belongs to (set by the curriculum index). */
+  grade?: Grade;
   number: number;
   theme: string;
   themeHe: string;
@@ -196,6 +202,8 @@ export const CORE_STEPS: StepId[] = ['warmup', 'learn', 'mission', 'create'];
 
 export interface LearnerProfile {
   name: string;
+  /** School grade; picks the learning plan. Profiles saved before grades existed are grade 6. */
+  grade: Grade;
   avatar: { emoji: string; color: string; gear: string };
   favoriteTheme: string;
   dailyGoalMinutes: 10 | 15 | 20;
@@ -338,6 +346,10 @@ export interface Progress {
   streakMilestones: number[];
 }
 
+/**
+ * One learner's view of the app. Every domain function works on this shape; with
+ * several children it is assembled from the Household for the child playing now.
+ */
 export interface AppState {
   version: number;
   profile: LearnerProfile | null;
@@ -347,4 +359,26 @@ export interface AppState {
   tickets: TicketTransaction[];
   rewards: Reward[];
   requests: RewardRequest[];
+}
+
+/** Everything that belongs to one child. */
+export interface ChildRecord {
+  id: string;
+  /** Salted hash of the child's optional 4-digit sign-in code. null = no code. */
+  codeHash: string | null;
+  profile: LearnerProfile;
+  settings: Settings;
+  progress: Progress;
+  tickets: TicketTransaction[];
+  requests: RewardRequest[];
+}
+
+/** What is persisted on the device: one parent PIN, shared rewards, several children. */
+export interface Household {
+  version: number;
+  parent: ParentAuth;
+  rewards: Reward[];
+  children: ChildRecord[];
+  /** Interface language before a child is chosen (welcome / "who is playing?"). */
+  uiLang: Lang;
 }

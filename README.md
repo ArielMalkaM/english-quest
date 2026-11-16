@@ -1,6 +1,6 @@
 # English Quest 🧭
 
-A game-like English learning app for Hebrew-speaking 6th graders in Israel (CEFR A1, Ministry of Education English Curriculum 2020, Band I vocabulary). Children restore **Quest Island** by completing one 10–20 minute quest a day, earn **Quest Tickets**, and send reward requests that only a parent can approve.
+A game-like English learning app for Hebrew-speaking children in grades 2–6 in Israel, with a separate plan per grade that follows the Ministry of Education English Curriculum (2020): oral pre-foundation (grade 2), Foundation Level literacy (grades 3–4) and Band I (grades 5–6, CEFR A1). Several children can share one device, each with their own progress and an optional sign-in code. Children restore **Quest Island** by completing one 10–20 minute quest a day, earn **Quest Tickets**, and send reward requests that only a parent can approve.
 
 ## Setup
 
@@ -14,7 +14,7 @@ npm run lint      # ESLint
 npm run build     # type-check + production build into dist/
 ```
 
-On first launch you get onboarding. To see a lived-in app immediately, choose **"load a ready-made demo"** on the welcome screen (child "Noam", parent PIN `1234`).
+On first launch you get onboarding (nickname, grade, avatar, parent PIN). To see a lived-in app immediately, choose **"load a ready-made demo"** on the welcome screen: "Noam" (grade 6, no code) and "Maya" (grade 3, child code `1111`); parent PIN `1234`.
 
 ## What is in the app
 
@@ -26,7 +26,10 @@ On first launch you get onboarding. To see a lived-in app immediately, choose **
 | Weekly plan | Six seeded weeks × five quests (Mon–Thu + a Boss Mission). One theme, word list and grammar focus run through every activity of the week. Includes a weekly review and a "no such thing as behind" catch-up path. |
 | Collections | Word collection (audio, example, optional Hebrew, mastery stars), badges and island progress. |
 | Tickets | Ticket pouch, history, Wish Board. A request holds tickets until a parent decides; declining refunds them. |
-| Parent area (PIN) | Weekly summary, strengths and review needs, recent writing, approve / decline / fulfil requests, reward editor (create, edit, pause, remove), weekly cap, bonus multiplier, ticket gifts, child profile, language, reduced motion, PIN change, data reset. |
+| Grade plans | Six weeks × five quests for every grade. Grade 2 is listening and speaking only (no reading or typing required, including warm-ups, bonuses and comeback games); grade 3 adds letters, sounds and copying words; grade 4 digraphs, magic e and short texts; grade 5 Band I grammar in context; grade 6 is the original hand-written plan. |
+| Several children | "Who is playing?" screen; each child has their own progress, tickets, wishes, settings and plan, and an optional 4-digit code (stored as a salted hash). The 👥 button switches player. |
+| Parent area (PIN) | Child switcher; per child: weekly summary with the grade's curriculum stage, strengths and review needs, recent writing, approve / decline / fulfil requests, ticket rules and gifts, weekly plan, **AI report**. Children tab: add, edit (nickname, grade, avatar, daily goal, code) or remove children. Shared reward editor, language, reduced motion, PIN change, data reset. |
+| AI report | A Markdown report per child (grade and MoE stage, plan progress, accuracy by skill and grammar topic, words and sentences to review, writing samples) with a ready-made request asking an AI assistant what to focus on. Copy, share (Web Share) or download; the nickname is left out unless the parent includes it. |
 
 Feedback is always supportive: first miss → one clue and a retry; second miss → the answer is shown and the item returns on a later day **in a different game format**. Tickets are never removed for mistakes and speed is never rewarded.
 
@@ -83,5 +86,10 @@ Forgot the PIN in the prototype? Remove the `english-quest/state` key from the b
 - **Backend / accounts:** implement `AppRepository` over HTTP and replace `parentAuth.ts` with server-side auth; the domain functions already take explicit `now` and session arguments.
 - **More content:** add `week7.ts…` using the helpers in `data/curriculum/build.ts`; grammar tags live in `curriculum/index.ts`.
 - **Recorded audio:** `lib/speech.ts` is the single place to swap synthesis for bundled recordings.
-- **Teacher / multi-child:** `AppState` is one learner today; key it by learner id in the repository.
+- **Teacher accounts:** the persisted `Household` already holds several children; a teacher view would be another reader of the same data.
+- **More grade content:** add a unit to `data/curriculum/grades/gradeN.ts` — `unit()` in `grades/unit.ts` turns a compact spec into five quests with the activity mix for that grade.
+
+## Saved data and upgrades
+
+Data is stored under `english-quest/state` as a `Household` (version 2): the parent PIN, shared rewards and a list of children. A save from the single-child version (version 1) is upgraded automatically on first load: that learner becomes the first child (grade 6) with every quest, ticket, word stat, badge and request kept, and the original save is copied to `english-quest/state-v1-backup`. Grade 6 lesson ids (`w1d1`…) are unchanged, so the plan continues where it stopped.
 - **Writing feedback:** `WriteGame` currently checks length, script and basic punctuation only — a parent or teacher review step (or a moderated checker) could plug in at `onDone`.

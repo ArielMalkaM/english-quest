@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Button, En, PageHeader } from '../../components/ui';
-import { DAY_LABELS, GRAMMAR, WEEKS, findLesson, findWord } from '../../data/curriculum';
+import { DAY_LABELS, GRAMMAR, findLesson, findWord, weeksFor } from '../../data/curriculum';
 import { buildBonus } from '../../domain/dailyPlan';
-import { isLessonComplete, isLessonUnlocked, nextLessonId, weeklySummary } from '../../domain/progress';
+import { gradeOf, isLessonComplete, isLessonUnlocked, nextLessonId, weeklySummary } from '../../domain/progress';
 import { navigate } from '../../lib/router';
 import { useStore } from '../../state/store';
 import { SKILL_META, TYPE_META } from '../quest/meta';
@@ -12,7 +12,8 @@ const WARMUP_TYPES = ['match', 'listen', 'spell', 'match', 'listen'] as const;
 export function WeeklyPlan({ forParent = false }: { forParent?: boolean }) {
   const { state, t, lang } = useStore();
   const { progress } = state;
-  const nextId = nextLessonId(progress);
+  const WEEKS = weeksFor(gradeOf(state));
+  const nextId = nextLessonId(progress, gradeOf(state));
   const currentWeek = nextId ? (findLesson(nextId)?.week.number ?? 1) : WEEKS.length;
   const [number, setNumber] = useState(currentWeek);
   const week = WEEKS[number - 1];
@@ -51,7 +52,7 @@ export function WeeklyPlan({ forParent = false }: { forParent?: boolean }) {
           const current = lesson.id === nextId;
           const steps = progress.steps[lesson.id] ?? [];
           const cells = [
-            { label: t('חימום', 'Warm-up'), type: TYPE_META[WARMUP_TYPES[i]], done: steps.includes('warmup') },
+            { label: t('חימום', 'Warm-up'), type: TYPE_META[week.grade === 2 && i === 2 ? 'listen' : WARMUP_TYPES[i]], done: steps.includes('warmup') },
             { label: t('לומדים', 'Learn'), type: TYPE_META[lesson.learn.type], done: steps.includes('learn'), extra: lesson.learn.grammar ? L(GRAMMAR[lesson.learn.grammar]) : undefined },
             { label: t('אתגר', 'Mission'), type: TYPE_META[lesson.mission.type], done: steps.includes('mission'), extra: lesson.mission.type === 'reading' ? lesson.mission.genre : undefined },
             { label: t('יוצרים', 'Create'), type: TYPE_META[lesson.create.type], done: steps.includes('create') },

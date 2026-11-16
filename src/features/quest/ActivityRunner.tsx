@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Arrow, Button, Confetti, En, HelpHint } from '../../components/ui';
 import { findLesson } from '../../data/curriculum';
 import { stepActivities } from '../../domain/dailyPlan';
-import { BADGES, isLessonUnlocked } from '../../domain/progress';
+import { findBadge, gradeOf, isLessonUnlocked } from '../../domain/progress';
 import type { AttemptInput, StepOutcome } from '../../domain/session';
 import { CORE_STEPS } from '../../domain/types';
 import type { Activity, ItemResult, StepId } from '../../domain/types';
@@ -156,7 +156,7 @@ export function ActivityRunner({ lessonId, step }: { lessonId: string; step: Ste
               </>
             )}
             {outcome.newBadges.map((id) => {
-              const b = BADGES.find((x) => x.id === id);
+              const b = findBadge(id, gradeOf(state));
               return b ? (
                 <p key={id} className="badge-new">
                   <span aria-hidden="true">{b.emoji}</span> {t('תג חדש:', 'New badge:')} <b>{lang === 'he' ? b.titleHe : b.title}</b>

@@ -17,7 +17,7 @@ const parent = { unlockedAt: NOW.getTime() };
 function child(pin: string | null = '4321'): AppState {
   return startProfile(
     createInitialState(),
-    { name: 'Test', avatar: { emoji: '🦊', color: '#fff', gear: '🧭' }, favoriteTheme: 'Animals', dailyGoalMinutes: 15, createdAt: NOW.toISOString() },
+    { name: 'Test', grade: 6, avatar: { emoji: '🦊', color: '#fff', gear: '🧭' }, favoriteTheme: 'Animals', dailyGoalMinutes: 15, createdAt: NOW.toISOString() },
     pin,
     NOW,
   );
@@ -129,11 +129,11 @@ describe('session completion', () => {
 
   it('keeps later quests locked until the previous one is complete', () => {
     const s = child();
-    expect(nextLessonId(s.progress)).toBe('w1d1');
+    expect(nextLessonId(s.progress, 6)).toBe('w1d1');
     expect(isLessonUnlocked(s.progress, 'w1d2')).toBe(false);
     expect(() => completeStep(s, 'w1d2', 'warmup', attempt(), NOW)).toThrow();
     const after = playLesson(s, 'w1d1', NOW);
-    expect(nextLessonId(after.progress)).toBe('w1d2');
+    expect(nextLessonId(after.progress, 6)).toBe('w1d2');
     expect(isLessonUnlocked(after.progress, 'w1d2')).toBe(true);
   });
 
@@ -318,7 +318,7 @@ describe('seeded demo data', () => {
     expect(a).toEqual(b);
     expect(a.progress.sessions).toHaveLength(6);
     expect(isLessonComplete(a.progress, 'w1d5')).toBe(true);
-    expect(nextLessonId(a.progress)).toBe('w2d2');
+    expect(nextLessonId(a.progress, 6)).toBe('w2d2');
     expect(a.requests.map((r) => r.status)).toEqual(['approved', 'pending']);
     expect(balance(a.tickets)).toBeGreaterThan(0);
     expect(a.progress.reviewQueue.length).toBeGreaterThan(0);

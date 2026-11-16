@@ -1,8 +1,13 @@
-import { LESSON_ORDER, WEEKS } from '../data/curriculum';
+import { findLesson, lessonOrder, weeksFor } from '../data/curriculum';
 import { addDays, isInWeekOf, localDate } from './dates';
 import { earnedThisWeek } from './tickets';
 import { CORE_STEPS } from './types';
-import type { AppState, Progress, SessionRecord, Skill, Tally, ZoneId } from './types';
+import type { AppState, Grade, Progress, SessionRecord, Skill, Tally, ZoneId } from './types';
+
+/** The learner's grade; profiles from before grades existed count as grade 6. */
+export function gradeOf(state: Pick<AppState, 'profile'>): Grade {
+  return state.profile?.grade ?? 6;
+}
 
 export const ZONE_BY_SKILL: Record<Skill, ZoneId> = {
   vocabulary: 'woods',
@@ -53,16 +58,18 @@ export function isLessonComplete(progress: Progress, lessonId: string): boolean 
   return CORE_STEPS.every((s) => done.includes(s));
 }
 
-/** The next quest to play, or null when every seeded quest is finished. */
-export function nextLessonId(progress: Progress): string | null {
-  return LESSON_ORDER.find((id) => !isLessonComplete(progress, id)) ?? null;
+/** The next quest of the grade's plan, or null when every quest of that plan is finished. */
+export function nextLessonId(progress: Progress, grade: Grade): string | null {
+  return lessonOrder(grade).find((id) => !isLessonComplete(progress, id)) ?? null;
 }
 
-/** A quest opens once every quest before it is complete. */
+/** A quest opens once every quest before it in its own grade's plan is complete. */
 export function isLessonUnlocked(progress: Progress, lessonId: string): boolean {
-  const next = nextLessonId(progress);
-  if (next === null) return true;
-  return LESSON_ORDER.indexOf(lessonId) <= LESSON_ORDER.indexOf(next);
+  const grade = findLesson(lessonId)?.week.grade ?? 6;
+  const order = lessonOrder(grade);
+  const next = nextLessonId(progress, grade);
+  if (next === null) return order.includes(lessonId);
+  return order.indexOf(lessonId) >= 0 && order.indexOf(lessonId) <= order.indexOf(next);
 }
 
 /** Consecutive days with a completed quest, counting today or (if none yet) yesterday. */
@@ -108,7 +115,7 @@ export interface BadgeDef {
 const countAttempts = (s: AppState, pred: (a: AppState['progress']['attempts'][number]) => boolean) =>
   s.progress.attempts.filter((a) => !a.practice && pred(a)).length;
 
-export const BADGES: BadgeDef[] = [
+const COMMON_BADGES: BadgeDef[] = [
   { id: 'first-quest', emoji: '🧭', title: 'First Steps', titleHe: 'צעדים ראשונים', how: 'Finish your first quest', howHe: 'סיימו את המשימה הראשונה', earned: (s) => s.progress.sessions.length >= 1 },
   { id: 'five-quests', emoji: '🗺️', title: 'Trail Finder', titleHe: 'מגלי שבילים', how: 'Finish 5 quests', howHe: 'סיימו 5 משימות', earned: (s) => s.progress.sessions.length >= 5 },
   { id: 'fifteen-quests', emoji: '🏔️', title: 'Island Hero', titleHe: 'גיבורי האי', how: 'Finish 15 quests', howHe: 'סיימו 15 משימות', earned: (s) => s.progress.sessions.length >= 15 },
@@ -121,9 +128,20 @@ export const BADGES: BadgeDef[] = [
   { id: 'bonus-3', emoji: '🎈', title: 'Sky Explorer', titleHe: 'חוקר השמיים', how: 'Finish 3 bonus missions', howHe: 'סיימו 3 משימות בונוס', earned: (s) => countAttempts(s, (a) => a.step === 'bonus') >= 3 },
   { id: 'comeback', emoji: '💪', title: 'Never Give Up', titleHe: 'לא מוותרים', how: 'Try again and solve it on 3 different days', howHe: 'נסו שוב והצליחו ב-3 ימים שונים', earned: (s) => s.progress.tryAgainDays.length >= 3 },
   { id: 'first-wish', emoji: '💌', title: 'Wish Sender', titleHe: 'שולח המשאלות', how: 'Send your first wish to a parent', howHe: 'שלחו משאלה ראשונה להורה', earned: (s) => s.requests.length >= 1 },
-  ...WEEKS.map(
+];
+
+const BADGE_CACHE = new Map<Grade, BadgeDef[]>();
+
+/** Common badges plus one "week champion" badge per week of the grade's plan. */
+export function badgesFor(grade: Grade): BadgeDef[] {
+  const cached = BADGE_CACHE.get(grade);
+  if (cached) return cached;
+  const list: BadgeDef[] = [
+    ...COMMON_BADGES,
+    ...weeksFor(grade).map(
     (w): BadgeDef => ({
-      id: `week-${w.number}`,
+      // Grade 6 keeps the original ids so badges already earned stay earned.
+      id: grade === 6 ? `week-${w.number}` : `g${grade}-week-${w.number}`,
       emoji: w.emoji,
       title: `${w.theme} Champion`,
       titleHe: `אלופי "${w.themeHe}"`,
@@ -131,13 +149,21 @@ export const BADGES: BadgeDef[] = [
       howHe: `סיימו את משימת הבוס של שבוע ${w.number}`,
       earned: (s) => isLessonComplete(s.progress, w.lessons[w.lessons.length - 1].id),
     }),
-  ),
-];
+    ),
+  ];
+  BADGE_CACHE.set(grade, list);
+  return list;
+}
+
+/** Badge lookup by id for any grade (week badges show the grade's own week title). */
+export function findBadge(id: string, grade: Grade): BadgeDef | undefined {
+  return badgesFor(grade).find((b) => b.id === id);
+}
 
 /** Adds any newly earned badges. Returns the new state and the ids just earned. */
 export function evaluateBadges(state: AppState, now: Date): { state: AppState; earned: string[] } {
   const have = new Set(state.progress.badges.map((b) => b.id));
-  const earned = BADGES.filter((b) => !have.has(b.id) && b.earned(state, now)).map((b) => b.id);
+  const earned = badgesFor(gradeOf(state)).filter((b) => !have.has(b.id) && b.earned(state, now)).map((b) => b.id);
   if (earned.length === 0) return { state, earned };
   const at = now.toISOString();
   return {

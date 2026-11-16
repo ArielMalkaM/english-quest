@@ -86,8 +86,13 @@ function longestWord(sentence: string): string {
 /** Turns due review items into short games — always in a different format than last time. */
 export function buildReviewActivities(due: ReviewItem[], week: WeeklyPlan): Activity[] {
   const out: Activity[] = [];
+  // Grade 2 is oral only: a word that would come back as spelling comes back as listening.
+  const formatOf = (d: ReviewItem) => {
+    const f = nextFormat('word', d.lastFormat);
+    return week.grade === 2 && f === 'spell' ? 'listen' : f;
+  };
   const byFormat = (format: string) =>
-    due.filter((d) => d.kind === 'word' && nextFormat('word', d.lastFormat) === format)
+    due.filter((d) => d.kind === 'word' && formatOf(d) === format)
       .map((d) => findWord(d.wordId ?? ''))
       .filter((w): w is Word => Boolean(w));
 
@@ -150,7 +155,9 @@ export function buildWarmup(week: WeeklyPlan, lessonIndex: number, progress: Pro
       : lessonIndex === 1 || lessonIndex === 4
         ? listenGame(id, words.slice(0, 5), week.words)
         : lessonIndex === 2
-          ? spellGame(id, words.slice(0, 5))
+          ? week.grade === 2
+            ? listenGame(id, words.slice(0, 5), week.words)
+            : spellGame(id, words.slice(0, 5))
           : matchGame(id, words, false);
   const due = dueReviews(progress.reviewQueue, progress.sessions.length, 5);
   return [main, ...buildReviewActivities(due, week)];
@@ -177,10 +184,15 @@ function speedGame(id: string, week: WeeklyPlan, offset: number): SpeedActivity 
   };
 }
 
-/** Optional bonus: a different playful format each day. */
+/** Optional bonus: a different playful format each day (only listening and talking in grades 2–3). */
 export function buildBonus(week: WeeklyPlan, lessonIndex: number): Activity {
   const id = `${week.id}d${lessonIndex + 1}-bonus`;
-  if (lessonIndex === 1 || lessonIndex === 4) {
+  const grade = week.grade ?? 6;
+  if (grade === 2 && (lessonIndex === 0 || lessonIndex === 3)) {
+    const words = week.words.slice(lessonIndex === 0 ? 0 : 6).slice(0, 6);
+    return { ...listenGame(id, words, week.words), title: 'Sky Echo', titleHe: 'הד בשמיים' };
+  }
+  if (lessonIndex === 1 || lessonIndex === 4 || (grade <= 3 && lessonIndex === 2)) {
     return {
       id,
       type: 'speak',

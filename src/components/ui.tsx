@@ -114,9 +114,9 @@ export function Arrow({ back = false }: { back?: boolean }) {
   );
 }
 
-export function Avatar({ size = 48 }: { size?: number }) {
+export function Avatar({ size = 48, avatar }: { size?: number; avatar?: { emoji: string; color: string; gear: string } }) {
   const { state } = useStore();
-  const a = state.profile?.avatar ?? { emoji: '🧒', color: '#2ec4b6', gear: '🧭' };
+  const a = avatar ?? state.profile?.avatar ?? { emoji: '🧒', color: '#2ec4b6', gear: '🧭' };
   return (
     <span className="avatar" style={{ width: size, height: size, background: a.color, fontSize: size * 0.55 }} aria-hidden="true">
       {a.emoji}

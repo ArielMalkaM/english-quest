@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Arrow, Button, Confetti, En, PageHeader } from '../../components/ui';
-import { LESSON_ORDER, findLesson } from '../../data/curriculum';
+import { findLesson, lessonOrder } from '../../data/curriculum';
 import { STEP_MINUTES, stepActivities } from '../../domain/dailyPlan';
-import { BADGES, ZONE_BY_SKILL, computeStreak, isLessonComplete, isLessonUnlocked, nextLessonId } from '../../domain/progress';
+import { ZONE_BY_SKILL, computeStreak, findBadge, gradeOf, isLessonComplete, isLessonUnlocked, nextLessonId } from '../../domain/progress';
 import { CORE_STEPS } from '../../domain/types';
 import type { StepId } from '../../domain/types';
 import { navigate } from '../../lib/router';
@@ -23,9 +23,11 @@ function AllDone() {
 
 export function TodayQuest({ lessonId }: { lessonId?: string }) {
   const { state, t, lang } = useStore();
-  const id = lessonId ?? nextLessonId(state.progress) ?? LESSON_ORDER[LESSON_ORDER.length - 1];
+  const grade = gradeOf(state);
+  const LESSON_ORDER = lessonOrder(grade);
+  const id = lessonId ?? nextLessonId(state.progress, grade) ?? LESSON_ORDER[LESSON_ORDER.length - 1];
   const found = findLesson(id);
-  if (!lessonId && nextLessonId(state.progress) === null) return <AllDone />;
+  if (!lessonId && nextLessonId(state.progress, grade) === null) return <AllDone />;
   if (!found) return <AllDone />;
   const { week, lesson, index } = found;
 
@@ -46,7 +48,7 @@ export function TodayQuest({ lessonId }: { lessonId?: string }) {
   const nextStep = CORE_STEPS.find((s) => !done.includes(s));
   const minutesLeft = CORE_STEPS.filter((s) => !done.includes(s)).reduce((sum, s) => sum + STEP_MINUTES[s], 0);
   const steps: StepId[] = [...CORE_STEPS, 'bonus'];
-  const upcoming = nextLessonId(state.progress);
+  const upcoming = nextLessonId(state.progress, grade);
 
   return (
     <div className="page quest-page">
@@ -140,6 +142,7 @@ export function SessionDone({ lessonId }: { lessonId: string }) {
   const earned = txs.reduce((sum, x) => sum + x.amount, 0);
   const fresh = lastOutcome?.lessonId === lessonId && lastOutcome.sessionCompleted ? lastOutcome : null;
   const streak = computeStreak(state.progress.sessions, new Date());
+  const LESSON_ORDER = lessonOrder(gradeOf(state));
   const nextId = LESSON_ORDER[LESSON_ORDER.indexOf(lessonId) + 1];
   const next = nextId ? findLesson(nextId) : null;
   const bonusDone = (state.progress.steps[lessonId] ?? []).includes('bonus');
@@ -179,7 +182,7 @@ export function SessionDone({ lessonId }: { lessonId: string }) {
           ))}
         </ul>
         {fresh?.newBadges.map((bid) => {
-          const b = BADGES.find((x) => x.id === bid);
+          const b = findBadge(bid, gradeOf(state));
           return b ? (
             <p key={bid} className="badge-new">
               <span aria-hidden="true">{b.emoji}</span> {t('תג חדש:', 'New badge:')} <b>{lang === 'he' ? b.titleHe : b.title}</b>

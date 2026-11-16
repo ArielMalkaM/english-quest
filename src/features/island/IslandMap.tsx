@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Avatar, Button, En } from '../../components/ui';
-import { WEEKS, findLesson } from '../../data/curriculum';
+import { findLesson, weeksFor } from '../../data/curriculum';
 import { STEP_MINUTES } from '../../domain/dailyPlan';
-import { MAX_ZONE_LEVEL, ZONE_LEVELS, computeStreak, isLessonComplete, nextLessonId, zoneLevel } from '../../domain/progress';
+import { MAX_ZONE_LEVEL, ZONE_LEVELS, computeStreak, gradeOf, isLessonComplete, nextLessonId, zoneLevel } from '../../domain/progress';
 import { CORE_STEPS } from '../../domain/types';
 import type { ZoneId } from '../../domain/types';
 import { navigate } from '../../lib/router';
@@ -39,7 +39,8 @@ export function IslandMap() {
   const { state, t, lang } = useStore();
   const [openZone, setOpenZone] = useState<ZoneId | null>(null);
   const { progress, profile } = state;
-  const nextId = nextLessonId(progress);
+  const WEEKS = weeksFor(gradeOf(state));
+  const nextId = nextLessonId(progress, gradeOf(state));
   const next = nextId ? findLesson(nextId) : null;
   const done = nextId ? (progress.steps[nextId] ?? []) : [];
   const coreDone = CORE_STEPS.filter((s) => done.includes(s)).length;

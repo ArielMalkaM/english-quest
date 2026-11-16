@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { AVATAR_COLORS, AVATAR_EMOJI, AVATAR_GEAR, AvatarPicker } from '../../components/AvatarPicker';
 import { Arrow, Button } from '../../components/ui';
-import { DEMO_PIN } from '../../data/seed';
+import { DEMO_CHILD_CODE, DEMO_PIN } from '../../data/seed';
 import { isValidPin } from '../../domain/parentAuth';
-import type { Lang, LearnerProfile } from '../../domain/types';
+import { GradePicker } from '../../components/GradePicker';
+import type { Grade, Lang, LearnerProfile } from '../../domain/types';
 import { useStore } from '../../state/store';
 
 const THEMES = [
@@ -19,6 +20,7 @@ export function Onboarding() {
   const { t, lang, actions } = useStore();
   const [step, setStep] = useState(0);
   const [name, setName] = useState('');
+  const [grade, setGrade] = useState<Grade>(6);
   const [avatar, setAvatar] = useState<LearnerProfile['avatar']>({ emoji: AVATAR_EMOJI[0], color: AVATAR_COLORS[0], gear: AVATAR_GEAR[0] });
   const [theme, setTheme] = useState(THEMES[0].id);
   const [goal, setGoal] = useState<10 | 15 | 20>(15);
@@ -29,7 +31,7 @@ export function Onboarding() {
   const finish = (withPin: boolean) => {
     if (withPin && !isValidPin(pin)) return setError(t('הקוד חייב להיות 4 ספרות.', 'The PIN must be 4 digits.'));
     actions.finishOnboarding(
-      { name: name.trim().slice(0, 20), avatar, favoriteTheme: theme, dailyGoalMinutes: goal, createdAt: new Date().toISOString() },
+      { name: name.trim().slice(0, 20), grade, avatar, favoriteTheme: theme, dailyGoalMinutes: goal, createdAt: new Date().toISOString() },
       withPin ? pin : null,
       lang,
     );
@@ -47,7 +49,7 @@ export function Onboarding() {
       </div>
       <Button onClick={() => setStep(1)}>{t('יוצאים למסע!', 'Start the adventure!')} ▶</Button>
       <Button variant="ghost" onClick={() => actions.loadDemo()}>
-        {t(`רק להציץ: טעינת הדגמה מוכנה (קוד הורים ${DEMO_PIN})`, `Just looking: load a ready-made demo (parent PIN ${DEMO_PIN})`)}
+        {t(`רק להציץ: טעינת הדגמה מוכנה (קוד הורים ${DEMO_PIN}, הקוד של Maya ${DEMO_CHILD_CODE})`, `Just looking: load a ready-made demo (parent PIN ${DEMO_PIN}, Maya’s code ${DEMO_CHILD_CODE})`)}
       </Button>
     </div>,
     // 1 — name
@@ -56,6 +58,8 @@ export function Onboarding() {
       <h1>{t('איך קוראים לך, חוקר/ת?', 'What is your explorer name?')}</h1>
       <label htmlFor="onb-name" className="field-label">{t('כינוי (נשמר רק במכשיר הזה)', 'Nickname (saved only on this device)')}</label>
       <input id="onb-name" className="text-input wide" value={name} maxLength={20} onChange={(e) => setName(e.target.value)} autoFocus autoComplete="off" />
+      <GradePicker value={grade} onChange={setGrade} />
+      <p className="soft-note">{t('לכל כיתה תוכנית משלה לפי תוכנית הלימודים של משרד החינוך. הורים יכולים לשנות ולהוסיף ילדים נוספים באזור ההורים.', 'Each grade has its own plan, following the Ministry of Education curriculum. Parents can change it and add more children in the parent area.')}</p>
       <Button disabled={!name.trim()} onClick={() => setStep(2)}>{t('הבא', 'Next')} <Arrow /></Button>
     </div>,
     // 2 — avatar

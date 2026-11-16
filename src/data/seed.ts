@@ -1,15 +1,18 @@
 import { stepActivities } from '../domain/dailyPlan';
 import { addDays } from '../domain/dates';
 import { makeSalt, setPin } from '../domain/parentAuth';
+import { HOUSEHOLD_VERSION, hashChildCode, householdFromState } from '../domain/household';
 import { emptyProgress } from '../domain/progress';
 import type { AttemptInput } from '../domain/session';
 import { completeStep } from '../domain/session';
 import { TICKETS, decideRequest, grantTickets, requestReward } from '../domain/tickets';
-import type { Activity, AppState, ItemResult, Reward, Settings, StepId } from '../domain/types';
-import { LESSON_ORDER } from './curriculum';
+import type { Activity, AppState, Grade, Household, ItemResult, Lang, Reward, Settings, StepId } from '../domain/types';
+import { lessonOrder } from './curriculum';
 
 export const STATE_VERSION = 1;
 export const DEMO_PIN = '1234';
+/** Sign-in code of the second demo child. */
+export const DEMO_CHILD_CODE = '1111';
 
 export const DEFAULT_REWARDS: Reward[] = [
   { id: 'rw-movie', title: 'Choose a family movie', titleHe: 'לבחור סרט משפחתי', emoji: '🎬', cost: 20, active: true },
@@ -100,8 +103,31 @@ const DEMO_TEXTS = [
   'What time do you wake up? Do you play football after school?',
 ];
 
+/** Plays the first quests of a grade's plan, one per day, ending yesterday. */
+function playDemoDays(state: AppState, grade: Grade, days: number, now: Date): AppState {
+  const steps: StepId[] = ['warmup', 'learn', 'mission', 'create'];
+  lessonOrder(grade).slice(0, days).forEach((lessonId, day) => {
+    const at = addDays(now, day - days);
+    at.setHours(17, 0, 0, 0);
+    const playSteps: StepId[] = day % 2 === 0 ? [...steps, 'bonus'] : steps;
+    playSteps.forEach((step, s) => {
+      const attempts: AttemptInput[] = stepActivities(lessonId, step, state.progress).map((activity, i) => ({
+        activityType: activity.type,
+        skill: activity.skill,
+        seconds: 120 + ((day * 37 + s * 53 + i * 11) % 150),
+        items: syntheticItems(activity, day + s + grade),
+        ...(activity.type === 'write' ? { text: (grade === 6 ? DEMO_TEXTS : DEMO_TEXTS_YOUNG)[day % 3] } : {}),
+      }));
+      state = completeStep(state, lessonId, step, attempts, new Date(at.getTime() + s * 4 * 60000)).state;
+    });
+  });
+  return state;
+}
+
+const DEMO_TEXTS_YOUNG = ['I have a pen. I have a bag.', 'I have a cat. It is black.', 'This is my bag. I have an eraser.'];
+
 /**
- * A deterministic, lived-in demo: "Noam" has played for six days, finished week 1,
+ * A deterministic, lived-in demo: "Noam" (grade 6) has played for six days, finished week 1,
  * started week 2, and has one approved and one pending wish. Parent PIN = DEMO_PIN.
  */
 export function createDemoState(now: Date): AppState {
@@ -109,6 +135,7 @@ export function createDemoState(now: Date): AppState {
     createInitialState(),
     {
       name: 'Noam',
+      grade: 6,
       avatar: { emoji: '🤖', color: '#2ec4b6', gear: '🧭' },
       favoriteTheme: 'Space and robots',
       dailyGoalMinutes: 15,
@@ -117,27 +144,56 @@ export function createDemoState(now: Date): AppState {
     DEMO_PIN,
     addDays(now, -6),
   );
-
-  const steps: StepId[] = ['warmup', 'learn', 'mission', 'create'];
-  LESSON_ORDER.slice(0, 6).forEach((lessonId, day) => {
-    const at = addDays(now, day - 6);
-    at.setHours(17, 0, 0, 0);
-    const playSteps: StepId[] = day % 2 === 0 ? [...steps, 'bonus'] : steps;
-    playSteps.forEach((step, s) => {
-      const attempts: AttemptInput[] = stepActivities(lessonId, step, state.progress).map((activity, i) => ({
-        activityType: activity.type,
-        skill: activity.skill,
-        seconds: 120 + ((day * 37 + s * 53 + i * 11) % 150),
-        items: syntheticItems(activity, day + s),
-        ...(activity.type === 'write' ? { text: DEMO_TEXTS[day % DEMO_TEXTS.length] } : {}),
-      }));
-      state = completeStep(state, lessonId, step, attempts, new Date(at.getTime() + s * 4 * 60000)).state;
-    });
-  });
+  state = playDemoDays(state, 6, 6, now);
 
   const unlocked = { unlockedAt: addDays(now, -2).getTime() };
   state = requestReward(state, 'rw-dessert', addDays(now, -2));
   state = decideRequest(state, state.requests[0].id, 'approve', unlocked, addDays(now, -2));
   state = requestReward(state, 'rw-game', addDays(now, -1));
   return state;
+}
+
+/** A brand-new household: no children yet (onboarding), seeded rewards. */
+export function createInitialHousehold(uiLang: Lang = DEFAULT_SETTINGS.uiLang): Household {
+  const base = createInitialState();
+  return { version: HOUSEHOLD_VERSION, parent: base.parent, rewards: base.rewards, children: [], uiLang };
+}
+
+/**
+ * Demo household: Noam (grade 6, no code) and his sister Maya (grade 3, code DEMO_CHILD_CODE)
+ * who has played three days of the grade 3 plan.
+ */
+export function createDemoHousehold(now: Date): Household {
+  const noam = createDemoState(now);
+  let household = householdFromState(noam, 'child-noam');
+  let maya = startProfile(
+    { ...createInitialState(), parent: household.parent, rewards: household.rewards },
+    {
+      name: 'Maya',
+      grade: 3,
+      avatar: { emoji: '🦄', color: '#ff6b6b', gear: '🎒' },
+      favoriteTheme: 'Animals',
+      dailyGoalMinutes: 10,
+      createdAt: addDays(now, -3).toISOString(),
+    },
+    null,
+    addDays(now, -3),
+  );
+  maya = playDemoDays(maya, 3, 3, now);
+  household = {
+    ...household,
+    children: [
+      ...household.children,
+      {
+        id: 'child-maya',
+        codeHash: hashChildCode(household, 'child-maya', DEMO_CHILD_CODE),
+        profile: maya.profile!,
+        settings: maya.settings,
+        progress: maya.progress,
+        tickets: maya.tickets,
+        requests: maya.requests,
+      },
+    ],
+  };
+  return household;
 }
