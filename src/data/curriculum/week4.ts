@@ -1,0 +1,158 @@
+import type { WeeklyPlan } from '../../domain/types';
+import { bridge, build, choice, dialogue, lesson, listen, q, reading, scene, sort, spell, tip, word, write } from './build';
+
+const scenes = [
+  { emoji: '🏞️', label: 'In the park', words: ['flying a kite', 'running', 'laughing'] },
+  { emoji: '🏖️', label: 'At the beach', words: ['swimming', 'playing', 'eating ice cream'] },
+  { emoji: '🏠', label: 'At home', words: ['cooking', 'reading', 'sleeping'] },
+];
+
+export const week4: WeeklyPlan = {
+  id: 'w4',
+  number: 4,
+  theme: 'What’s Happening Now?',
+  themeHe: 'מה קורה עכשיו?',
+  emoji: '🔭',
+  grammarFocus: 'Present continuous',
+  grammarFocusHe: 'הווה ממושך',
+  finalMission: 'Narrate a picture mission',
+  finalMissionHe: 'מתארים תמונה כמו כתבים',
+  friend: { name: 'Pip', emoji: '🦜' },
+  words: [
+    word('w4-running', 'running', 'רץ', '🏃', 'The boys are running in the park.'),
+    word('w4-jumping', 'jumping', 'קופץ', '🤸', 'She is jumping on the bed.'),
+    word('w4-swimming', 'swimming', 'שוחה', '🏊', 'Dan is swimming in the sea.'),
+    word('w4-reading', 'reading', 'קורא', '📖', 'I am reading a comic.'),
+    word('w4-cooking', 'cooking', 'מבשל', '🍳', 'Dad is cooking dinner now.'),
+    word('w4-drawing', 'drawing', 'מצייר', '🎨', 'The children are drawing pictures.'),
+    word('w4-sleeping', 'sleeping', 'ישן', '😴', 'Shh! The baby is sleeping.'),
+    word('w4-laughing', 'laughing', 'צוחק', '😂', 'We are laughing at the joke.'),
+    word('w4-wearing', 'wearing', 'לובש', '🧢', 'He is wearing a red hat.'),
+    word('w4-carrying', 'carrying', 'נושא / סוחב', '🎒', 'She is carrying a big bag.'),
+    word('w4-park', 'park', 'פארק', '🏞️', 'Lots of people are in the park.'),
+    word('w4-kite', 'kite', 'עפיפון', '🪁', 'A girl is flying a kite.'),
+  ],
+  phrases: ['I am reading a book.', 'She is flying a kite.', 'What are you doing now?', 'They aren’t sleeping.'],
+  scenes,
+  lessons: [
+    lesson('w4d1', 'Look! It’s Happening!', 'תראו! זה קורה!', {
+      learn: choice('Magic Binoculars', 'משקפת הקסם', 'present-continuous', 'You have magic binoculars. Tell us what you see right now!', [
+        ['Look! The boy ___ a kite.', ['is flying', 'flies', 'fly'], 0, 'קורה עכשיו → is + פועל עם ing.'],
+        ['The girls ___ in the park now.', ['is running', 'are running', 'runs'], 1, 'the girls = they → are running.'],
+        ['I ___ a picture at the moment.', ['am drawing', 'is drawing', 'draw'], 0, 'I → am drawing.'],
+        ['Listen! The baby ___.', ['is laughing', 'are laughing', 'laugh'], 0, 'the baby = אחד → is laughing.'],
+        ['We ___ dinner right now.', ['is cooking', 'are cooking', 'cooks'], 1, 'we → are cooking.'],
+      ]),
+      tip: tip('Present Continuous מתאר מה שקורה ממש עכשיו: am / is / are + פועל עם ing. מילות רמז: now, right now, Look!, Listen!', 'I am reading.', 'She is running.', 'They are playing.'),
+      mission: listen('Action Radio', 'רדיו הפעולות', [
+        ['Look at Dan. He is swimming in the sea.', 'What is Dan doing?', [['swimming', '🏊'], ['running', '🏃'], ['sleeping', '😴']], 0],
+        ['The children are drawing pictures of their pets.', 'What are the children doing?', [['reading', '📖'], ['drawing', '🎨'], ['cooking', '🍳']], 1],
+        ['Shh! Grandpa is sleeping on the sofa.', 'What is Grandpa doing?', [['laughing', '😂'], ['jumping', '🤸'], ['sleeping', '😴']], 2],
+        ['Mum is carrying a big bag and wearing a red hat.', 'What is Mum wearing?', [['a red hat', '🧢'], ['a blue scarf', '🧣'], ['a green coat', '🧥']], 0],
+      ]),
+      create: scene('Live Reporter', 'כתב בשידור חי', scenes),
+      recap: ['Action words: running, swimming, drawing', 'Happening now: She is flying a kite'],
+    }),
+    lesson('w4d2', 'Not Now!', 'לא עכשיו!', {
+      learn: bridge('Right-Now Bridge', 'גשר העכשיו', 'pc-neg-q', [
+        'The dog isn’t sleeping now.',
+        'Are you reading a comic?',
+        'We aren’t wearing our coats today.',
+        'What is she carrying in her bag?',
+      ]),
+      tip: tip('שלילה: am not / isn’t / aren’t + ing. שאלה: Am / Is / Are בתחילת המשפט.', 'He isn’t sleeping.', 'Are you listening?', 'What are they doing?'),
+      mission: reading('story', 'Comic: At the Park', 'קומיקס: בפארק', 'Comic', 'At the Park', '💬', [
+        'Panel 1: It is a sunny day. Lots of people are in the park.',
+        'Panel 2: A girl is flying a red kite. She is laughing.',
+        'Panel 3: Two boys are running after a small dog.',
+        'Panel 4: The dog is carrying a sandwich in its mouth!',
+        'Panel 5: A man is sitting on the grass. He isn’t eating – his sandwich is missing.',
+        'Panel 6: The boys are saying sorry. The dog isn’t sorry!',
+      ], [
+        q('Who is flying a kite?', 'חפשו את המילה kite.', 1, ['A girl', 'Two boys', 'A man'], 0),
+        q('Tap the panel that shows WHY the boys are running after the dog.', 'מה הכלב נושא?', 3),
+        q('Whose sandwich is it?', 'למי חסר סנדוויץ׳?', 4, ['The girl’s', 'The man’s', 'The boys’'], 1),
+        q('Tap the panel that tells us about the weather.', 'חפשו את המילה sunny.', 0),
+      ]),
+      create: dialogue('Grandma Calls', 'סבתא מתקשרת', 'Grandma is on the phone.', ['Grandma', '👵'], [
+        ['Hello dear! What are you doing?', ['I’m doing my homework.', ['I do my homework every day.', 'סבתא שואלת על עכשיו → I’m doing.'], ['Yes, I am.', 'לשאלת What לא עונים Yes / No.']]],
+        ['Is your brother helping you?', ['No, he isn’t. He’s playing football.', ['No, he doesn’t.', 'שאלה עם Is → עונים isn’t.'], ['No, I’m not.', 'סבתא שואלת על your brother → he.']]],
+        ['And what is your mum cooking? It’s dinner time!', ['She’s making pasta.', ['She makes pasta on Mondays.', 'מדברים על עכשיו → She’s making.'], ['She is a cook.', 'סבתא שואלת מה אמא מבשלת עכשיו.']]],
+        ['Lovely! Are you wearing the hat I gave you?', ['Yes, I am! I love it.', ['Yes, I do.', 'שאלה עם Are → עונים I am.'], ['Yes, I wear.', 'תשובה קצרה: Yes, I am.']]],
+      ]),
+      recap: ['Negatives: isn’t sleeping · aren’t wearing', 'Questions: What are you doing?'],
+    }),
+    lesson('w4d3', 'Spelling in Action', 'איות בפעולה', {
+      learn: spell('The -ing Gate', 'שער ה-ing', 'present-continuous', [
+        ['running', 'run → He is ___ in the park.', 'פועל קצר: מכפילים את n.'],
+        ['swimming', 'swim → She is ___ in the sea now.', 'פועל קצר: מכפילים את m.'],
+        ['making', 'make → Dad is ___ a cake.', 'ה-e בסוף נעלמת.'],
+        ['writing', 'write → I am ___ a message.', 'ה-e בסוף נעלמת.'],
+        ['sitting', 'sit → They are ___ on the grass.', 'פועל קצר: מכפילים את t.'],
+      ]),
+      tip: tip('כללי ing: בדרך כלל רק מוסיפים ing (read → reading). e בסוף נעלמת (make → making). בפעלים קצרים מכפילים אות (run → running).', 'read → reading', 'make → making', 'run → running'),
+      mission: reading('detective', 'Class Chat', 'הצ׳אט הכיתתי', 'Messages', 'Class Chat', '📱', [
+        'Noa: Where is everyone? I’m waiting at the park gate.',
+        'Ben: Sorry! I’m still eating lunch. Ten minutes!',
+        'Lia: I’m coming. I’m carrying the ball and the water.',
+        'Tom: I can’t come. I’m helping my dad in the shop today.',
+        'Noa: OK. It’s getting cloudy. Bring a coat!',
+        'Ben: I’m running now! Don’t start without me!',
+      ], [
+        q('How many children are going to play?', 'מי לא יכול לבוא?', 3, ['Two', 'Three', 'Four'], 1),
+        q('Why does Noa say “Bring a coat”?', 'cloudy = מעונן.', 4, ['It may rain', 'It is very hot', 'She likes coats'], 0),
+        q('Who is late because of lunch?', 'חפשו את המילה lunch.', 1, ['Ben', 'Lia', 'Noa'], 0),
+      ]),
+      create: write('Right Now', 'ממש עכשיו', 'Look around you. What are you and other people doing right now? Write 2 sentences.', 'הסתכלו סביב. מה אתם ואנשים אחרים עושים עכשיו? כתבו שני משפטים.', 8,
+        ['Right now I am ', 'My mum is ', 'My friends are '], ['reading', 'sitting', 'writing', 'cooking', 'wearing', 'now']),
+      recap: ['-ing spelling: running, making, sitting', 'Reading chat messages like a detective'],
+    }),
+    lesson('w4d4', 'Every Day or Right Now?', 'כל יום או ממש עכשיו?', {
+      learn: sort('Habit or Now?', 'הרגל או עכשיו?', 'ps-vs-pc', ['Every day (habit)', 'Right now'], [
+        ['I walk to school.', 0], ['I am walking to school.', 1], ['Look! She is reading.', 1], ['She usually reads at night.', 0],
+        ['We play football on Sundays.', 0], ['We are playing football now.', 1],
+      ], 'Present Simple = הרגל (every day, usually). Present Continuous = עכשיו (now, Look!).'),
+      tip: tip('Present Simple = מה שקורה תמיד או בדרך כלל. Present Continuous = מה שקורה ממש עכשיו.', 'I usually walk to school.', 'Today I am riding my bike.'),
+      mission: listen('Usually… But Today!', 'בדרך כלל… אבל היום!', [
+        ['Sara usually walks to school, but today she is riding her bike.', 'How is Sara going to school today?', [['walking', '🚶'], ['by bike', '🚲'], ['by bus', '🚌']], 1],
+        ['Dad cooks dinner every evening. Right now he is making soup.', 'What is Dad doing now?', [['making soup', '🍲'], ['cleaning', '🧽'], ['reading', '📖']], 0],
+        ['My brother never wears a hat, but look – he is wearing one today!', 'What is different today?', [['he is running', '🏃'], ['he is sleeping', '😴'], ['he is wearing a hat', '🧢']], 2],
+        ['The children play outside every afternoon. Today it is raining, so they are drawing inside.', 'Why are the children inside?', [['they are tired', '😴'], ['it is raining', '🌧️'], ['it is night', '🌙']], 1],
+      ]),
+      create: build('What Are You Doing?', 'מה אתם עושים?', 'Send a message: what are you doing now?', 'שלחו הודעה: מה אתם עושים עכשיו?', [
+        'I usually play football on Mondays.',
+        'But today I am reading at home.',
+        'What are you doing now?',
+      ]),
+      recap: ['Habit: I walk to school every day', 'Now: I am walking to school'],
+    }),
+    lesson('w4d5', 'Boss Mission: Narrate the Picture', 'משימת בוס: מתארים תמונה', {
+      boss: true,
+      learn: choice('Now or Always?', 'עכשיו או תמיד?', 'ps-vs-pc', 'Final check with Pip the parrot. Read the clue words carefully!', [
+        ['Look! The cat ___ on my bed.', ['sleeps', 'is sleeping', 'sleep'], 1, 'Look! = קורה עכשיו → is sleeping.'],
+        ['The cat ___ on my bed every night.', ['sleeps', 'is sleeping', 'are sleeping'], 0, 'every night = הרגל → sleeps.'],
+        ['___ you listening to me?', ['Do', 'Are', 'Is'], 1, 'listening (ing) → Are you…?'],
+        ['My friends ___ wearing coats today. It’s hot.', ['isn’t', 'aren’t', 'don’t'], 1, 'my friends = they → aren’t.'],
+        ['What ___ your sister doing now?', ['is', 'does', 'are'], 0, 'your sister = she → is.'],
+      ]),
+      tip: tip('סיכום השבוע: am / is / are + ing למה שקורה עכשיו · isn’t / aren’t · Are you…? · הרגל → Present Simple.', 'She is drawing now.', 'She draws every day.'),
+      mission: reading('detective', 'The Busy Kitchen', 'המטבח העסוק', 'Short story', 'The Busy Kitchen', '🎂', [
+        'It is six o’clock and everybody is in the kitchen.',
+        'Dad is making a big chocolate cake.',
+        'Maya is blowing up balloons and her brother is drawing a card.',
+        'Grandma is hiding a box behind the door.',
+        'Mum isn’t here. She is still working at the office.',
+        '“Quick!” says Dad. “She is coming home at seven!”',
+      ], [
+        q('What is the family getting ready for?', 'עוגה, בלונים, כרטיס ברכה…', 2, ['A surprise party', 'A school trip', 'Breakfast'], 0),
+        q('Who is the surprise for?', 'מי לא נמצא במטבח?', 4, ['Dad', 'Grandma', 'Mum'], 2),
+        q('What do you think is in the box?', 'למה סבתא מחביאה את הקופסה?', 3, ['A present', 'Homework', 'A sandwich'], 0),
+      ]),
+      create: write('Picture Reporter', 'כתב התמונה', 'Narrate the park picture like a reporter: what is everyone doing? (about 30 words)', 'תארו את התמונה מהפארק כמו כתבים: מה כולם עושים? (בערך 30 מילים)', 25,
+        ['It is a sunny day in the park. ', 'A girl is ', 'Two boys are ', 'The dog is ', 'I am '],
+        ['flying a kite', 'running', 'laughing', 'carrying', 'wearing', 'sitting', 'eating', 'park'],
+        { maxWords: 40, panels: ['🌞', '🪁', '🏃', '🐕', '🥪'] }),
+      recap: ['Present continuous vs present simple', 'You narrated a whole picture in English!'],
+    }),
+  ],
+};
