@@ -4,6 +4,7 @@ import { Button } from '../../components/ui';
 import type { AccountNotice } from '../../state/account';
 import { useAccount } from '../../state/account';
 import { useStore } from '../../state/store';
+import { useSync } from '../../sync/SyncProvider';
 
 type T = (he: string, en: string) => string;
 
@@ -223,16 +224,15 @@ function SignedIn() {
             {t('לא הצלחנו לקרוא את נתוני המשפחה מהשרת. ייתכן שמסד הנתונים עוד לא הוגדר (supabase/schema.sql).', 'Could not read the family from the server. The database may not be set up yet (supabase/schema.sql).')}
           </p>
         )}
-        <div className="notice notice-plan">
-          <span aria-hidden="true">🔄</span>
-          <p>{t('סנכרון ההתקדמות של הילדים בין מכשירים יופעל בעדכון הבא. בינתיים הנתונים נשמרים בכל מכשיר בנפרד, כמו קודם.', 'Syncing the children’s progress between devices is switched on in the next update. Until then, data stays on each device as before.')}</p>
-        </div>
+        <SyncStatusCard />
         {msg && <p className="soft-note" role="status">{msg}</p>}
         <div className="row-center">
           <Button variant="ghost" onClick={() => { setChanging(!changing); setMsg(''); setError(''); }}>🔑 {t('החלפת סיסמה', 'Change password')}</Button>
           <Button variant="ghost" onClick={() => void actions.signOut()}>🚪 {t('יציאה מהחשבון במכשיר הזה', 'Sign out on this device')}</Button>
         </div>
+        <p className="soft-note">{t('יציאה מהחשבון משאירה במכשיר הזה עותק של הנתונים, אבל הוא מפסיק להסתנכרן.', 'Signing out keeps a copy of the data on this device, but it stops syncing.')}</p>
       </section>
+      <LinkChoiceCard />
       {changing && (
         <section className="card">
           <h2>🔑 {t('סיסמה חדשה', 'New password')}</h2>
@@ -247,6 +247,116 @@ function SignedIn() {
         </section>
       )}
     </>
+  );
+}
+
+function useAgo() {
+  const { lang } = useStore();
+  const rtf = new Intl.RelativeTimeFormat(lang === 'he' ? 'he' : 'en', { numeric: 'auto' });
+  return (iso: string) => {
+    const s = Math.round((Date.parse(iso) - Date.now()) / 1000);
+    if (Math.abs(s) < 60) return rtf.format(Math.min(0, s), 'second');
+    const m = Math.round(s / 60);
+    if (Math.abs(m) < 60) return rtf.format(m, 'minute');
+    const h = Math.round(m / 60);
+    return Math.abs(h) < 24 ? rtf.format(h, 'hour') : rtf.format(Math.round(h / 24), 'day');
+  };
+}
+
+function SyncStatusCard() {
+  const { t } = useStore();
+  const sync = useSync();
+  const ago = useAgo();
+  const last = sync.lastSyncAt ? t(`סונכרן לאחרונה ${ago(sync.lastSyncAt)}`, `Last synced ${ago(sync.lastSyncAt)}`) : '';
+  const text: Record<typeof sync.status, [string, string, string]> = {
+    off: ['⏸', 'הסנכרון כבוי.', 'Sync is off.'],
+    syncing: ['🔄', 'מסנכרן…', 'Syncing…'],
+    idle: ['✅', `ההתקדמות של כל הילדים מסונכרנת בין המכשירים. ${last}`, `Every child’s progress is synced between devices. ${last}`],
+    offline: ['📴', 'אין חיבור לאינטרנט. השינויים נשמרים במכשיר ויעלו אוטומטית כשהחיבור יחזור.', 'No internet connection. Changes are saved on this device and upload automatically when it is back.'],
+    'needs-choice': ['🤝', 'צריך להחליט איך לחבר את המכשיר הזה לחשבון (למטה).', 'Choose how to connect this device to the account (below).'],
+    'needs-migration': ['🛠️', 'מסד הנתונים צריך עדכון: הריצו את supabase/migrations/002_sync.sql ב-Supabase.', 'The database needs an update: run supabase/migrations/002_sync.sql in Supabase.'],
+    error: ['⚠️', 'הסנכרון נכשל. ננסה שוב אוטומטית.', 'Sync failed. It will try again automatically.'],
+  };
+  const [emoji, he, en] = text[sync.status];
+  return (
+    <div className={`notice ${sync.status === 'error' || sync.status === 'needs-migration' ? 'notice-coral' : 'notice-plan'}`} role="status">
+      <span aria-hidden="true">{emoji}</span>
+      <p>
+        {t(he, en)}
+        {sync.status === 'error' && sync.error && <><br /><small dir="ltr">{sync.error}</small></>}
+        {sync.status !== 'syncing' && sync.status !== 'off' && (
+          <>
+            <br />
+            <button type="button" className="help-btn" onClick={sync.syncNow}>🔄 {t('סנכרון עכשיו', 'Sync now')}</button>
+          </>
+        )}
+      </p>
+    </div>
+  );
+}
+
+/** First sign-in on a device that already has children while the account has children too. */
+function LinkChoiceCard() {
+  const { t, household } = useStore();
+  const sync = useSync();
+  const [confirmReplace, setConfirmReplace] = useState(false);
+  if (sync.status !== 'needs-choice') return null;
+  const here = household.children.map((c) => c.profile.name);
+  const there = sync.accountChildren.map((c) => c.name);
+  return (
+    <section className="card">
+      <h2>🤝 {t('לחבר את המכשיר הזה לחשבון', 'Connect this device to the account')}</h2>
+      <p>
+        {t('בחשבון כבר יש:', 'The account already has:')} <b><bdi>{there.join(', ')}</bdi></b>
+        <br />
+        {t('במכשיר הזה יש:', 'This device has:')} <b><bdi>{here.join(', ')}</bdi></b>
+      </p>
+      <div className="row-center">
+        <Button onClick={() => sync.choose('add')}>➕ {t('להוסיף את הילדים מהמכשיר הזה לחשבון', 'Add this device’s children to the account')}</Button>
+        <Button variant="ghost" onClick={() => setConfirmReplace(true)}>{t('להשתמש רק בילדים מהחשבון', 'Use only the account’s children')}</Button>
+      </div>
+      <p className="soft-note">{t('הוספה שומרת את כל ההתקדמות משני הצדדים. אם אותו ילד מופיע בשניהם, הוא יופיע פעמיים — אפשר להסיר את הכפול בלשונית "ילדים". קוד ההורים והפרסים יגיעו מהחשבון.', 'Adding keeps all progress from both sides. If the same child is on both, they appear twice — remove the extra one in the Children tab. The parent PIN and rewards come from the account.')}</p>
+      {confirmReplace && (
+        <div className="feedback feedback-clue" role="alertdialog" aria-label={t('אישור', 'Confirm')}>
+          <strong>{t(`הילדים במכשיר הזה (${here.join(', ')}) והתקדמותם יימחקו מהמכשיר הזה, ובמקומם יופיעו הילדים מהחשבון. לא ניתן לבטל.`, `This device’s children (${here.join(', ')}) and their progress are deleted from this device and replaced by the account’s children. This cannot be undone.`)}</strong>
+          <div className="row-center">
+            <Button variant="ghost" onClick={() => setConfirmReplace(false)}>{t('ביטול', 'Cancel')}</Button>
+            <Button variant="coral" onClick={() => sync.choose('replace')}>{t('כן, להשתמש בחשבון', 'Yes, use the account')}</Button>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+/** Sign-in on a brand-new device, from the welcome screen: the family downloads automatically. */
+export function OnboardingSignIn({ onBack, onContinue }: { onBack: () => void; onContinue: () => void }) {
+  const { t } = useStore();
+  const { status, email } = useAccount();
+  const sync = useSync();
+  if (status !== 'signed-in') {
+    return (
+      <div className="onb-step">
+        <SignedOut />
+        <button type="button" className="help-btn" onClick={onBack}>{t('חזרה', 'Back')}</button>
+      </div>
+    );
+  }
+  const empty = sync.status === 'idle';
+  return (
+    <div className="onb-step">
+      <div className="onb-art" aria-hidden="true">☁️</div>
+      <h1>{t('מחובר/ת לחשבון המשפחתי', 'Signed in to the family account')}</h1>
+      <p dir="ltr">{email}</p>
+      {empty ? (
+        <>
+          <p>{t('בחשבון עוד אין ילדים. ממשיכים ליצירת הפרופיל הראשון — הוא יישמר בחשבון.', 'The account has no children yet. Continue to create the first profile — it will be saved to the account.')}</p>
+          <Button onClick={onContinue}>{t('המשך', 'Continue')}</Button>
+        </>
+      ) : (
+        <SyncStatusCard />
+      )}
+    </div>
   );
 }
 

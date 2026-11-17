@@ -5,7 +5,10 @@ import { DEMO_CHILD_CODE, DEMO_PIN } from '../../data/seed';
 import { isValidPin } from '../../domain/parentAuth';
 import { GradePicker } from '../../components/GradePicker';
 import type { Grade, Lang, LearnerProfile } from '../../domain/types';
+import { accountsEnabled } from '../../lib/supabase';
+import { useAccount } from '../../state/account';
 import { useStore } from '../../state/store';
+import { OnboardingSignIn } from '../account/FamilyAccount';
 
 const THEMES = [
   { id: 'Animals', he: 'חיות', emoji: '🐾' },
@@ -26,6 +29,8 @@ export function Onboarding() {
   const [goal, setGoal] = useState<10 | 15 | 20>(15);
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
+  const [withAccount, setWithAccount] = useState(false);
+  const { status: accountStatus } = useAccount();
   const setLang = (l: Lang) => actions.updateChildSettings({ uiLang: l });
 
   const finish = (withPin: boolean) => {
@@ -48,9 +53,16 @@ export function Onboarding() {
         <button type="button" className={`pick wide ${lang === 'en' ? 'on' : ''}`} aria-pressed={lang === 'en'} onClick={() => setLang('en')}>English</button>
       </div>
       <Button onClick={() => setStep(1)}>{t('יוצאים למסע!', 'Start the adventure!')} ▶</Button>
-      <Button variant="ghost" onClick={() => actions.loadDemo()}>
-        {t(`רק להציץ: טעינת הדגמה מוכנה (קוד הורים ${DEMO_PIN}, הקוד של Maya ${DEMO_CHILD_CODE})`, `Just looking: load a ready-made demo (parent PIN ${DEMO_PIN}, Maya’s code ${DEMO_CHILD_CODE})`)}
-      </Button>
+      {accountsEnabled && (
+        <Button variant="secondary" onClick={() => setWithAccount(true)}>
+          ☁️ {t('יש לנו כבר חשבון משפחתי — כניסה', 'We already have a family account — sign in')}
+        </Button>
+      )}
+      {accountStatus !== 'signed-in' && (
+        <Button variant="ghost" onClick={() => actions.loadDemo()}>
+          {t(`רק להציץ: טעינת הדגמה מוכנה (קוד הורים ${DEMO_PIN}, הקוד של Maya ${DEMO_CHILD_CODE})`, `Just looking: load a ready-made demo (parent PIN ${DEMO_PIN}, Maya’s code ${DEMO_CHILD_CODE})`)}
+        </Button>
+      )}
     </div>,
     // 1 — name
     <div key="name" className="onb-step">
@@ -102,6 +114,22 @@ export function Onboarding() {
       <Button variant="ghost" onClick={() => finish(false)}>{t('דילוג בינתיים', 'Skip for now')}</Button>
     </div>,
   ];
+
+  if (withAccount) {
+    return (
+      <div className="onboarding">
+        <div className="onb-card">
+          <OnboardingSignIn
+            onBack={() => setWithAccount(false)}
+            onContinue={() => {
+              setWithAccount(false);
+              setStep(1);
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="onboarding">

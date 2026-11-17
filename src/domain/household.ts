@@ -83,7 +83,8 @@ export function mergeChildView(h: Household, childId: string, view: AppState, no
 }
 
 function codeSalt(h: Household, childId: string): string {
-  return `${h.parent.salt}:${childId}`;
+  const key = h.children.find((c) => c.id === childId)?.codeKey ?? childId;
+  return `${h.parent.salt}:${key}`;
 }
 
 export function hashChildCode(h: Household, childId: string, code: string): string {
@@ -167,7 +168,12 @@ export function removeChild(h: Household, childId: string, session: ParentSessio
   assertParent(session, now);
   if (!findChild(h, childId)) throw new HouseholdError('not-found', 'Child not found');
   if (h.children.length <= 1) throw new HouseholdError('last-child', 'Use “Reset everything” to remove the last child');
-  return { ...h, children: h.children.filter((c) => c.id !== childId) };
+  return {
+    ...h,
+    children: h.children.filter((c) => c.id !== childId),
+    // Remembered until the family account has heard about it, so other devices remove the child too.
+    removedChildren: h.sync ? [...(h.removedChildren ?? []), { id: childId, at: now.toISOString() }] : h.removedChildren,
+  };
 }
 
 /** Builds a household around one existing learner, keeping all of their progress. */

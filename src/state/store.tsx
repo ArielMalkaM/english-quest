@@ -38,6 +38,10 @@ export interface Store {
   lastOutcome: (StepOutcome & { lessonId: string; step: StepId }) | null;
   /** The same store, bound to another child (used by the parent dashboard). */
   forChild(childId: string): Store;
+  /** Goes up on every change made on this device. */
+  localEdits: number;
+  /** Raw access for the sync engine. */
+  sync: SyncBridge;
   actions: {
     finishOnboarding(profile: LearnerProfile, pin: string | null, uiLang: Lang): void;
     loadDemo(): void;
@@ -66,6 +70,12 @@ export interface Store {
     resetAll(): void;
     resetToDemo(): void;
   };
+}
+
+export interface SyncBridge {
+  get(): Household;
+  /** Applies a change from the family account (saved on the device, not counted as a local edit). */
+  apply(fn: (h: Household) => Household): void;
 }
 
 const StoreContext = createContext<Store | null>(null);
@@ -152,13 +162,33 @@ export function StoreProvider({ repository, children }: { repository: AppReposit
     };
   }, [repository, setActive]);
 
+  /** Counts changes made on this device (not ones that came from the family account), so sync knows when to upload. */
+  const [localEdits, setLocalEdits] = useState(0);
+
   const commit = useCallback(
-    (next: Household) => {
+    (next: Household, fromSync = false) => {
       hhRef.current = next;
       setHousehold(next);
       void repository.save(next);
+      if (!fromSync) setLocalEdits((n) => n + 1);
     },
     [repository],
+  );
+
+  const syncBridge = useMemo<SyncBridge>(
+    () => ({
+      get: () => hhRef.current as Household,
+      apply(fn) {
+        const cur = hhRef.current;
+        if (!cur) return;
+        const next = fn(cur);
+        if (next === cur) return;
+        commit(next, true);
+        // The child playing now was removed on another device.
+        if (activeRef.current && !findChild(next, activeRef.current)) setActive(null);
+      },
+    }),
+    [commit, setActive],
   );
 
   const actionCache = useRef(new Map<string | null, Store['actions']>());
@@ -358,6 +388,8 @@ export function StoreProvider({ repository, children }: { repository: AppReposit
         t,
         parentUnlocked,
         lastOutcome,
+        localEdits,
+        sync: syncBridge,
         forChild(id) {
           let s = scopedCache.get(id);
           if (!s) {
@@ -370,7 +402,7 @@ export function StoreProvider({ repository, children }: { repository: AppReposit
       };
     };
     return build(active?.id ?? null);
-  }, [household, activeChildId, parentSession, lastOutcome, actionsFor]);
+  }, [household, activeChildId, parentSession, lastOutcome, actionsFor, localEdits, syncBridge]);
 
   if (!store) {
     return (

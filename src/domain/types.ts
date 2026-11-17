@@ -371,6 +371,8 @@ export interface ChildRecord {
   progress: Progress;
   tickets: TicketTransaction[];
   requests: RewardRequest[];
+  /** Salt key for codeHash when it differs from id (the child got a new id when two devices were combined). */
+  codeKey?: string;
   /** Goes up by one on every change to this child; used to detect edits from another device. */
   rev: number;
   /** ISO time of the last change to this child. */
@@ -388,4 +390,26 @@ export interface Household {
   children: ChildRecord[];
   /** Interface language before a child is chosen (welcome / "who is playing?"). */
   uiLang: Lang;
+  /** Children removed on this device whose removal has not reached the family account yet. */
+  removedChildren?: { id: string; at: string }[];
+  /** Link to the parent's family account; absent when the device is not synced. */
+  sync?: SyncState;
+}
+
+export type SyncTable = 'families' | 'children' | 'ticket_transactions' | 'attempts' | 'reward_requests';
+
+/** What this device knows about its last sync with the family account (kept on the device only). */
+export interface SyncState {
+  familyId: string;
+  /** Server time (synced_at) of the newest row already pulled, per table. */
+  cursors: Partial<Record<SyncTable, string>>;
+  /** Household.rev the account had at the last sync. */
+  familyRev: number;
+  /** Child rev the account had at the last sync, per child. */
+  childRev: Record<string, number>;
+  /** Newest ticket / attempt / wish time already uploaded, per child. */
+  pushedUntil: Record<string, string>;
+  /** Ids of uploaded records close to pushedUntil (so the safety margin does not resend them). */
+  pushedRecent?: Record<string, string[]>;
+  lastSyncAt: string | null;
 }

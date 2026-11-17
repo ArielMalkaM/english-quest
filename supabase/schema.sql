@@ -2,6 +2,7 @@
 --
 -- Run once in the Supabase dashboard: SQL Editor → New query → paste this file → Run.
 -- It is safe to run again (it only creates what is missing and recreates the policies).
+-- Then run every file in supabase/migrations/ in order (002_sync.sql adds syncing between devices).
 --
 -- Model: one parent account (Supabase Auth user, signed up with email) owns one family.
 -- A family has shared settings (parent PIN hash, rewards) and several children. Each child's

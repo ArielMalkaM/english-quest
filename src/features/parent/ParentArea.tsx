@@ -13,6 +13,7 @@ import { balance, earnedThisWeek } from '../../domain/tickets';
 import type { ChildRecord, Grade, Lang, LearnerProfile, Reward } from '../../domain/types';
 import { navigate } from '../../lib/router';
 import { accountsEnabled } from '../../lib/supabase';
+import { useAccount } from '../../state/account';
 import { FamilyAccount } from '../account/FamilyAccount';
 import { ChildScope, useStore } from '../../state/store';
 import { REASON_META, SKILL_META } from '../quest/meta';
@@ -629,7 +630,10 @@ function AiReport() {
 }
 
 function ParentSettings() {
-  const { state, t, actions } = useStore();
+  const { state, household, t, actions } = useStore();
+  const { status: accountStatus, familyId } = useAccount();
+  const signedIn = accountStatus === 'signed-in';
+  const synced = signedIn && household.sync?.familyId === familyId;
   const [pin, setPin] = useState('');
   const [pinMsg, setPinMsg] = useState('');
   const [confirmReset, setConfirmReset] = useState<'all' | 'demo' | null>(null);
@@ -671,17 +675,23 @@ function ParentSettings() {
       </section>
       <section className="card danger">
         <h2>🧹 {t('איפוס נתונים', 'Reset data')}</h2>
-        <p className="soft-note">{t('כל המידע נשמר רק בדפדפן הזה. איפוס מוחק אותו לצמיתות.', 'All data lives only in this browser. Resetting deletes it permanently.')}</p>
+        <p className="soft-note">
+          {synced
+            ? t('המכשיר מחובר לחשבון המשפחתי: איפוס מוחק רק את העותק במכשיר הזה, והנתונים יורדו שוב מהחשבון.', 'This device is connected to the family account: resetting clears only this device’s copy, and the data downloads again from the account.')
+            : t('כל המידע נשמר רק בדפדפן הזה. איפוס מוחק אותו לצמיתות.', 'All data lives only in this browser. Resetting deletes it permanently.')}
+        </p>
         {confirmReset === null ? (
           <div className="row-center">
-            <Button variant="ghost" onClick={() => setConfirmReset('demo')}>{t('טעינת נתוני הדגמה', 'Load demo data')}</Button>
-            <Button variant="coral" onClick={() => setConfirmReset('all')}>{t('איפוס מלא', 'Reset everything')}</Button>
+            {!signedIn && <Button variant="ghost" onClick={() => setConfirmReset('demo')}>{t('טעינת נתוני הדגמה', 'Load demo data')}</Button>}
+            <Button variant="coral" onClick={() => setConfirmReset('all')}>{synced ? t('איפוס המכשיר הזה', 'Reset this device') : t('איפוס מלא', 'Reset everything')}</Button>
           </div>
         ) : (
           <div className="feedback feedback-clue" role="alertdialog" aria-label={t('אישור איפוס', 'Confirm reset')}>
             <strong>
               {confirmReset === 'all'
-                ? t('למחוק את כל הילדים, ההתקדמות, הכרטיסים והקוד ולהתחיל מחדש?', 'Delete every child, all progress, tickets and the PIN, and start again?')
+                ? synced
+                  ? t('למחוק את העותק במכשיר הזה ולהוריד מחדש מהחשבון?', 'Clear this device’s copy and download it again from the account?')
+                  : t('למחוק את כל הילדים, ההתקדמות, הכרטיסים והקוד ולהתחיל מחדש?', 'Delete every child, all progress, tickets and the PIN, and start again?')
                 : t(`להחליף את כל הנתונים (של כל הילדים) בנתוני הדגמה? (קוד הורים: ${DEMO_PIN}, הקוד של Maya: ${DEMO_CHILD_CODE})`, `Replace everything (for every child) with demo data? (Parent PIN: ${DEMO_PIN}, Maya’s code: ${DEMO_CHILD_CODE})`)}
             </strong>
             <div className="row-center">
