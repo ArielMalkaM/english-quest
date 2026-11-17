@@ -67,7 +67,8 @@ Design choices worth knowing:
 
 ## Child safety and privacy
 
-- No accounts, ads, analytics, external requests, chat, social feed or leaderboards.
+- No ads, analytics, chat, social feed or leaderboards. Children never have accounts.
+- Optional **family account** for the parent only (Supabase, email + password), switched on only when the app is built with Supabase settings — see [docs/supabase-setup.md](docs/supabase-setup.md). Without them the app makes no external requests and everything stays on the device.
 - The only personal data is a nickname and a parent PIN, stored in this browser's `localStorage`. The PIN is stored as a salted hash — a deterrent for the prototype, **not** real security.
 - Audio uses the browser's built-in speech synthesis. The optional "say it" button uses the browser's speech recognition where available; some browsers process speech through their own cloud service, so it is never required and can simply be skipped.
 - Writing typed by the child is kept locally so a parent can read it in the dashboard.
@@ -90,6 +91,8 @@ Forgot the PIN in the prototype? Remove the `english-quest/state` key from the b
 - **More grade content:** add a unit to `data/curriculum/grades/gradeN.ts` — `unit()` in `grades/unit.ts` turns a compact spec into five quests with the activity mix for that grade.
 
 ## Saved data and upgrades
+
+Current format: version 3 (adds a version number per child and for the shared part, and random record ids so several devices can be merged later). Version 2 saves upgrade automatically.
 
 Data is stored under `english-quest/state` as a `Household` (version 2): the parent PIN, shared rewards and a list of children. A save from the single-child version (version 1) is upgraded automatically on first load: that learner becomes the first child (grade 6) with every quest, ticket, word stat, badge and request kept, and the original save is copied to `english-quest/state-v1-backup`. Grade 6 lesson ids (`w1d1`…) are unchanged, so the plan continues where it stopped.
 - **Writing feedback:** `WriteGame` currently checks length, script and basic punctuation only — a parent or teacher review step (or a moderated checker) could plug in at `onDone`.

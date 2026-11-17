@@ -12,6 +12,8 @@ import { gradeOf, isLessonComplete, weeklySummary } from '../../domain/progress'
 import { balance, earnedThisWeek } from '../../domain/tickets';
 import type { ChildRecord, Grade, Lang, LearnerProfile, Reward } from '../../domain/types';
 import { navigate } from '../../lib/router';
+import { accountsEnabled } from '../../lib/supabase';
+import { FamilyAccount } from '../account/FamilyAccount';
 import { ChildScope, useStore } from '../../state/store';
 import { REASON_META, SKILL_META } from '../quest/meta';
 import { STATUS_META, useDateFormat } from '../tickets/TicketPouch';
@@ -706,7 +708,7 @@ function ParentSettings() {
   );
 }
 
-type Tab = 'overview' | 'requests' | 'rewards' | 'tickets' | 'plan' | 'report' | 'children' | 'settings';
+type Tab = 'overview' | 'requests' | 'rewards' | 'tickets' | 'plan' | 'report' | 'children' | 'account' | 'settings';
 
 export function ParentArea() {
   const { household, activeChildId, t, lang, parentUnlocked, actions } = useStore();
@@ -724,6 +726,7 @@ export function ParentArea() {
     { id: 'plan', label: t('תוכנית', 'Plan'), emoji: '📅' },
     { id: 'report', label: t('דוח AI', 'AI report'), emoji: '🤖' },
     { id: 'children', label: t('ילדים', 'Children'), emoji: '👪' },
+    ...(accountsEnabled ? [{ id: 'account' as const, label: t('חשבון', 'Account'), emoji: '☁️' }] : []),
     { id: 'settings', label: t('הגדרות', 'Settings'), emoji: '⚙️' },
   ];
   const panels: Record<Tab, ReactNode> = {
@@ -741,6 +744,7 @@ export function ParentArea() {
         }}
       />
     ),
+    account: <FamilyAccount />,
     settings: <ParentSettings />,
   };
 

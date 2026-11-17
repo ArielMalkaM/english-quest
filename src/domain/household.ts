@@ -1,3 +1,4 @@
+import { newId } from './ids';
 import { assertParent, hashPin, isValidPin } from './parentAuth';
 import { emptyProgress, gradeOf } from './progress';
 import type { AppState, ChildRecord, Grade, Household, LearnerProfile, ParentSession, Settings } from './types';
@@ -10,7 +11,8 @@ import { GRADES } from './types';
  * the result is written back with mergeChildView.
  */
 
-export const HOUSEHOLD_VERSION = 2;
+/** 2 = several children; 3 = per-child rev/updatedAt and random record ids. */
+export const HOUSEHOLD_VERSION = 3;
 
 export class HouseholdError extends Error {
   constructor(
@@ -46,22 +48,35 @@ export function childView(h: Household, child: ChildRecord): AppState {
   };
 }
 
+/** Marks a child as changed (next rev, new timestamp). */
+export function touchChild(child: ChildRecord, now: Date): ChildRecord {
+  return { ...child, rev: (child.rev ?? 0) + 1, updatedAt: now.toISOString() };
+}
+
+/** Marks the shared part (parent PIN, rewards, language) as changed. */
+export function touchShared(h: Household, now: Date): Household {
+  return { ...h, rev: (h.rev ?? 0) + 1, updatedAt: now.toISOString() };
+}
+
 /** Writes a changed view back: child data to the child, shared data to the household. */
-export function mergeChildView(h: Household, childId: string, view: AppState): Household {
+export function mergeChildView(h: Household, childId: string, view: AppState, now: Date = new Date()): Household {
+  const sharedChanged = view.parent !== h.parent || view.rewards !== h.rewards;
+  const base = sharedChanged ? touchShared({ ...h, parent: view.parent, rewards: view.rewards }, now) : h;
   return {
-    ...h,
-    parent: view.parent,
-    rewards: view.rewards,
+    ...base,
     children: h.children.map((c) =>
       c.id === childId
-        ? {
-            ...c,
-            profile: view.profile ?? c.profile,
-            settings: view.settings,
-            progress: view.progress,
-            tickets: view.tickets,
-            requests: view.requests,
-          }
+        ? touchChild(
+            {
+              ...c,
+              profile: view.profile ?? c.profile,
+              settings: view.settings,
+              progress: view.progress,
+              tickets: view.tickets,
+              requests: view.requests,
+            },
+            now,
+          )
         : c,
     ),
   };
@@ -83,10 +98,9 @@ export function verifyChildCode(h: Household, childId: string, code: string): bo
   return child.codeHash === hashChildCode(h, childId, code);
 }
 
-export function newChildId(h: Household, now: Date): string {
-  let n = h.children.length + 1;
-  let id = `child-${now.getTime().toString(36)}-${n}`;
-  while (h.children.some((c) => c.id === id)) id = `child-${now.getTime().toString(36)}-${++n}`;
+export function newChildId(h: Household): string {
+  let id = newId('child');
+  while (h.children.some((c) => c.id === id)) id = newId('child');
   return id;
 }
 
@@ -109,7 +123,7 @@ export function addChild(
 ): { household: Household; id: string } {
   if (h.children.length > 0) assertParent(session, now);
   if (input.code !== null && !isValidPin(input.code)) throw new HouseholdError('invalid', 'The code must be 4 digits');
-  const id = newChildId(h, now);
+  const id = newChildId(h);
   const child: ChildRecord = {
     id,
     codeHash: null,
@@ -119,6 +133,8 @@ export function addChild(
     ...input.record,
     profile: cleanProfile(input.profile),
     settings: input.settings,
+    rev: 1,
+    updatedAt: now.toISOString(),
   };
   child.codeHash = input.code ? hashChildCode(h, id, input.code) : null;
   return { household: { ...h, children: [...h.children, child] }, id };
@@ -138,11 +154,11 @@ export function updateChild(
   if (patch.code !== undefined && patch.code !== null && !isValidPin(patch.code)) {
     throw new HouseholdError('invalid', 'The code must be 4 digits');
   }
-  const next: ChildRecord = {
+  const next: ChildRecord = touchChild({
     ...child,
     profile: patch.profile ? cleanProfile({ ...child.profile, ...patch.profile }) : child.profile,
     codeHash: patch.code === undefined ? child.codeHash : patch.code === null ? null : hashChildCode(h, childId, patch.code),
-  };
+  }, now);
   return { ...h, children: h.children.map((c) => (c.id === childId ? next : c)) };
 }
 
@@ -155,12 +171,15 @@ export function removeChild(h: Household, childId: string, session: ParentSessio
 }
 
 /** Builds a household around one existing learner, keeping all of their progress. */
-export function householdFromState(state: AppState, childId: string): Household {
+export function householdFromState(state: AppState, childId: string, now: Date): Household {
   if (!state.profile) throw new HouseholdError('invalid', 'State has no learner');
+  const updatedAt = now.toISOString();
   return {
     version: HOUSEHOLD_VERSION,
     parent: state.parent,
     rewards: state.rewards,
+    rev: 1,
+    updatedAt,
     uiLang: state.settings.uiLang,
     children: [
       {
@@ -171,7 +190,21 @@ export function householdFromState(state: AppState, childId: string): Household 
         progress: state.progress,
         tickets: state.tickets,
         requests: state.requests,
+        rev: 1,
+        updatedAt,
       },
     ],
+  };
+}
+
+/** Upgrades a version-2 household (no rev/updatedAt yet). Existing record ids are kept. */
+export function upgradeHousehold(h: Household, now: Date): Household {
+  const updatedAt = now.toISOString();
+  return {
+    ...h,
+    version: HOUSEHOLD_VERSION,
+    rev: h.rev ?? 1,
+    updatedAt: h.updatedAt ?? updatedAt,
+    children: h.children.map((c) => ({ ...c, rev: c.rev ?? 1, updatedAt: c.updatedAt ?? updatedAt })),
   };
 }

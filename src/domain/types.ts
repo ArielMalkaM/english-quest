@@ -371,6 +371,10 @@ export interface ChildRecord {
   progress: Progress;
   tickets: TicketTransaction[];
   requests: RewardRequest[];
+  /** Goes up by one on every change to this child; used to detect edits from another device. */
+  rev: number;
+  /** ISO time of the last change to this child. */
+  updatedAt: string;
 }
 
 /** What is persisted on the device: one parent PIN, shared rewards, several children. */
@@ -378,6 +382,9 @@ export interface Household {
   version: number;
   parent: ParentAuth;
   rewards: Reward[];
+  /** Version of the shared part (parent PIN, rewards, language); goes up on every change to it. */
+  rev: number;
+  updatedAt: string;
   children: ChildRecord[];
   /** Interface language before a child is chosen (welcome / "who is playing?"). */
   uiLang: Lang;

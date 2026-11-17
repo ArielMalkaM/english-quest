@@ -228,6 +228,54 @@ describe('a separate plan for every grade', () => {
   });
 });
 
+describe('data ready for several devices', () => {
+  it('upgrades a version-2 save: adds versions, keeps every record and id', () => {
+    const v3 = createDemoHousehold(NOW);
+    const v2 = {
+      ...v3,
+      version: 2,
+      rev: undefined,
+      updatedAt: undefined,
+      children: v3.children.map((c) => ({ ...c, rev: undefined, updatedAt: undefined })),
+    };
+    const result = parseSaved(JSON.stringify(v2), NOW);
+    expect(result?.migrated).toBe(true);
+    const h = result!.household;
+    expect(h.version).toBe(3);
+    expect(h.rev).toBe(1);
+    expect(h.children.every((c) => c.rev === 1 && c.updatedAt === NOW.toISOString())).toBe(true);
+    expect(h.children.map((c) => c.tickets)).toEqual(v3.children.map((c) => c.tickets));
+    expect(h.children.map((c) => c.progress)).toEqual(v3.children.map((c) => c.progress));
+  });
+
+  it('gives new tickets, attempts and requests ids that two devices will not both create', () => {
+    const start = startProfile(createInitialState(), profile('Dana', 5), null, NOW);
+    const deviceA = playLesson(start, 'g5w1d1');
+    const deviceB = playLesson(start, 'g5w1d1');
+    const shared = new Set(start.tickets.map((x) => x.id)); // the welcome gift both devices started from
+    const idsA = [...deviceA.tickets, ...deviceA.progress.attempts].map((x) => x.id).filter((id) => !shared.has(id));
+    const idsB = new Set([...deviceB.tickets, ...deviceB.progress.attempts].map((x) => x.id));
+    expect(new Set(idsA).size).toBe(idsA.length);
+    expect(idsA.some((id) => idsB.has(id))).toBe(false);
+    expect(idsA.every((id) => /^(tx|at)-[0-9a-z]{16}$/.test(id))).toBe(true);
+  });
+
+  it('counts a version up for the child that changed, and for the shared part only when it changed', () => {
+    const h = createDemoHousehold(NOW);
+    const [noam, maya] = h.children;
+    const later = new Date(NOW.getTime() + 60_000);
+    const played = mergeChildView(h, noam.id, { ...childView(h, noam), settings: { ...noam.settings, sound: false } }, later);
+    expect(findChild(played, noam.id)!.rev).toBe(noam.rev + 1);
+    expect(findChild(played, noam.id)!.updatedAt).toBe(later.toISOString());
+    expect(findChild(played, maya.id)).toBe(maya);
+    expect(played.rev).toBe(h.rev);
+    const rewards = mergeChildView(h, noam.id, { ...childView(h, noam), rewards: h.rewards.slice(1) }, later);
+    expect(rewards.rev).toBe(h.rev + 1);
+    const edited = updateChild(h, maya.id, { profile: { grade: 4 } }, parent, later);
+    expect(findChild(edited, maya.id)!.rev).toBe(maya.rev + 1);
+  });
+});
+
 describe('AI report', () => {
   it('describes grade, curriculum stage, weak spots and writing, without the name by default', () => {
     const h = createDemoHousehold(NOW);

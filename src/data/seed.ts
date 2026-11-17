@@ -2,6 +2,7 @@ import { stepActivities } from '../domain/dailyPlan';
 import { addDays } from '../domain/dates';
 import { makeSalt, setPin } from '../domain/parentAuth';
 import { HOUSEHOLD_VERSION, hashChildCode, householdFromState } from '../domain/household';
+import { sequentialIds, withIdSource } from '../domain/ids';
 import { emptyProgress } from '../domain/progress';
 import type { AttemptInput } from '../domain/session';
 import { completeStep } from '../domain/session';
@@ -131,6 +132,10 @@ const DEMO_TEXTS_YOUNG = ['I have a pen. I have a bag.', 'I have a cat. It is bl
  * started week 2, and has one approved and one pending wish. Parent PIN = DEMO_PIN.
  */
 export function createDemoState(now: Date): AppState {
+  return withIdSource(sequentialIds('noam'), () => buildNoam(now));
+}
+
+function buildNoam(now: Date): AppState {
   let state = startProfile(
     createInitialState(),
     {
@@ -156,7 +161,7 @@ export function createDemoState(now: Date): AppState {
 /** A brand-new household: no children yet (onboarding), seeded rewards. */
 export function createInitialHousehold(uiLang: Lang = DEFAULT_SETTINGS.uiLang): Household {
   const base = createInitialState();
-  return { version: HOUSEHOLD_VERSION, parent: base.parent, rewards: base.rewards, children: [], uiLang };
+  return { version: HOUSEHOLD_VERSION, parent: base.parent, rewards: base.rewards, rev: 0, updatedAt: new Date(0).toISOString(), children: [], uiLang };
 }
 
 /**
@@ -165,8 +170,8 @@ export function createInitialHousehold(uiLang: Lang = DEFAULT_SETTINGS.uiLang): 
  */
 export function createDemoHousehold(now: Date): Household {
   const noam = createDemoState(now);
-  let household = householdFromState(noam, 'child-noam');
-  let maya = startProfile(
+  let household = householdFromState(noam, 'child-noam', now);
+  let maya = withIdSource(sequentialIds('maya'), () => startProfile(
     { ...createInitialState(), parent: household.parent, rewards: household.rewards },
     {
       name: 'Maya',
@@ -178,8 +183,8 @@ export function createDemoHousehold(now: Date): Household {
     },
     null,
     addDays(now, -3),
-  );
-  maya = playDemoDays(maya, 3, 3, now);
+  ));
+  maya = withIdSource(sequentialIds('maya-p'), () => playDemoDays(maya, 3, 3, now));
   household = {
     ...household,
     children: [
@@ -192,6 +197,8 @@ export function createDemoHousehold(now: Date): Household {
         progress: maya.progress,
         tickets: maya.tickets,
         requests: maya.requests,
+        rev: 1,
+        updatedAt: now.toISOString(),
       },
     ],
   };

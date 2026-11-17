@@ -1,5 +1,6 @@
 import { findLesson } from '../data/curriculum';
 import { localDate } from './dates';
+import { newId } from './ids';
 import { ZONE_BY_SKILL, computeStreak, evaluateBadges, isLessonComplete, isLessonUnlocked } from './progress';
 import { scheduleReview } from './review';
 import { STREAK_MILESTONES, TICKETS, grantTickets } from './tickets';
@@ -99,10 +100,10 @@ export function completeStep(
   const at = now.toISOString();
 
   let progress = state.progress;
-  const recorded: ActivityAttempt[] = attempts.map((a, i) => ({
+  const recorded: ActivityAttempt[] = attempts.map((a) => ({
     ...a,
     seconds: Math.max(0, Math.min(MAX_ACTIVITY_SECONDS, Math.round(a.seconds))),
-    id: `at-${progress.attempts.length + i + 1}`,
+    id: newId('at'),
     lessonId,
     step,
     finishedAt: at,

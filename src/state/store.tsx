@@ -8,6 +8,7 @@ import {
   findChild,
   mergeChildView,
   removeChild,
+  touchShared,
   updateChild,
   verifyChildCode,
 } from '../domain/household';
@@ -206,7 +207,7 @@ export function StoreProvider({ repository, children }: { repository: AppReposit
         finishOnboarding(profile, pin, uiLang) {
           const start = newChildStart(profile, pin, uiLang);
           const { household: next, id } = addChild(
-            { ...hh(), parent: start.parent, uiLang },
+            touchShared({ ...hh(), parent: start.parent, uiLang }, new Date()),
             { profile, code: null, settings: start.settings, record: { tickets: start.tickets } },
             session(),
             new Date(),
@@ -242,11 +243,11 @@ export function StoreProvider({ repository, children }: { repository: AppReposit
         },
         updateChildSettings(patch) {
           if (!findChild(hh(), boundId)) {
-            if (patch.uiLang) commit({ ...hh(), uiLang: patch.uiLang });
+            if (patch.uiLang) commit(touchShared({ ...hh(), uiLang: patch.uiLang }, new Date()));
             return;
           }
           onChild((v) => ({ ...v, settings: { ...v.settings, ...patch } }));
-          if (patch.uiLang && boundId === activeRef.current) commit({ ...hh(), uiLang: patch.uiLang });
+          if (patch.uiLang && boundId === activeRef.current) commit({ ...hh(), uiLang: patch.uiLang }); // device preference, not synced
         },
         unlockParent(pin) {
           const now = new Date();
@@ -256,14 +257,14 @@ export function StoreProvider({ repository, children }: { repository: AppReposit
         },
         createParentPin(pin) {
           if (hh().parent.pinHash !== null) throw new Error('A PIN already exists');
-          commit({ ...hh(), parent: setPin(hh().parent, pin) });
+          commit(touchShared({ ...hh(), parent: setPin(hh().parent, pin) }, new Date()));
           setSession({ unlockedAt: Date.now() });
         },
         lockParent() {
           setSession(null);
         },
         changePin(pin) {
-          asParentHousehold((h) => ({ ...h, parent: setPin(h.parent, pin) }));
+          asParentHousehold((h, now) => touchShared({ ...h, parent: setPin(h.parent, pin) }, now));
         },
         decideRequest(id, decision) {
           asParent((s, now) => decideRequest(s, id, decision, session(), now));
@@ -272,10 +273,10 @@ export function StoreProvider({ repository, children }: { repository: AppReposit
           asParent((s, now) => fulfillRequest(s, id, session(), now));
         },
         saveReward(reward) {
-          asParentHousehold((h, now) => ({ ...h, rewards: saveReward({ ...emptyView(h) }, reward, session(), now).rewards }));
+          asParentHousehold((h, now) => touchShared({ ...h, rewards: saveReward(emptyView(h), reward, session(), now).rewards }, now));
         },
         removeReward(id) {
-          asParentHousehold((h, now) => ({ ...h, rewards: removeReward({ ...emptyView(h) }, id, session(), now).rewards }));
+          asParentHousehold((h, now) => touchShared({ ...h, rewards: removeReward(emptyView(h), id, session(), now).rewards }, now));
         },
         giftTickets(amount, note) {
           asParent((s, now) => giftTickets(s, amount, note, session(), now));

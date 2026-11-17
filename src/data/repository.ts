@@ -1,4 +1,4 @@
-import { HOUSEHOLD_VERSION, householdFromState } from '../domain/household';
+import { HOUSEHOLD_VERSION, householdFromState, upgradeHousehold } from '../domain/household';
 import type { AppState, Household } from '../domain/types';
 
 /**
@@ -22,17 +22,20 @@ export const MIGRATED_CHILD_ID = 'child-1';
  * Reads any saved format. Version 1 (one learner) is upgraded to a household with that
  * learner as the first child (grade 6), keeping every quest, ticket, word stat and request.
  */
-export function parseSaved(raw: string): { household: Household; migrated: boolean } | null {
+export function parseSaved(raw: string, now: Date = new Date()): { household: Household; migrated: boolean } | null {
   const parsed = JSON.parse(raw) as (AppState | Household) & { version?: number };
   if (!parsed || typeof parsed !== 'object') return null;
   if (parsed.version === HOUSEHOLD_VERSION && Array.isArray((parsed as Household).children)) {
     return { household: parsed as Household, migrated: false };
   }
+  if (parsed.version === 2 && Array.isArray((parsed as Household).children)) {
+    return { household: upgradeHousehold(parsed as Household, now), migrated: true };
+  }
   if (parsed.version === 1) {
     const v1 = parsed as AppState;
     if (!v1.profile) return null; // onboarding was never finished: nothing to keep
     const profile = { ...v1.profile, grade: v1.profile.grade ?? 6 };
-    return { household: householdFromState({ ...v1, profile }, MIGRATED_CHILD_ID), migrated: true };
+    return { household: householdFromState({ ...v1, profile }, MIGRATED_CHILD_ID, now), migrated: true };
   }
   return null;
 }
@@ -47,7 +50,8 @@ export class LocalStorageRepository implements AppRepository {
       const result = parseSaved(raw);
       if (!result) return null;
       if (result.migrated) {
-        if (!this.storage.getItem(V1_BACKUP_KEY)) this.storage.setItem(V1_BACKUP_KEY, raw);
+        // Keep the very first (single-child) save untouched; later format upgrades only add fields.
+        if (!this.storage.getItem(V1_BACKUP_KEY) && JSON.parse(raw).version === 1) this.storage.setItem(V1_BACKUP_KEY, raw);
         this.storage.setItem(KEY, JSON.stringify(result.household));
       }
       return result.household;

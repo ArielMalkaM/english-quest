@@ -561,4 +561,12 @@ div.en, p.en { text-align: left; }
 .child-form .text-input:not(.pin) { max-width: 420px; }
 .notice-plan { background: var(--aqua-soft); align-items: flex-start; font-weight: 500; }
 .notice-plan b { font-weight: 700; }
+.account-toast {
+  position: fixed; z-index: 60; inset-inline: 16px; bottom: 16px; margin-inline: auto; max-width: 560px;
+  display: flex; align-items: center; gap: 10px; background: var(--navy); color: #fff;
+  border-radius: 16px; padding: 10px 10px 10px 16px; box-shadow: var(--shadow); font-weight: 600;
+}
+.account-toast span { flex: 1; }
+.account-toast .icon-btn { color: #fff; }
+.account-overlay { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; padding: 16px; background: rgba(20, 33, 61, 0.75); overflow-y: auto; }
 .report-text { min-height: 320px; font-family: ui-monospace, Consolas, monospace; font-size: 0.85rem; line-height: 1.45; resize: vertical; white-space: pre-wrap; }

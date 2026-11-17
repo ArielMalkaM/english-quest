@@ -1,4 +1,5 @@
 import { isInWeekOf } from './dates';
+import { newId } from './ids';
 import { assertParent } from './parentAuth';
 import type {
   AppState,
@@ -42,10 +43,6 @@ export function earnedThisWeek(txs: TicketTransaction[], now: Date): number {
     .reduce((sum, t) => sum + t.amount, 0);
 }
 
-function nextId(prefix: string, list: { id: string }[]): string {
-  return `${prefix}-${list.length + 1}`;
-}
-
 /**
  * Grants tickets for learning. Applies the parent's bonus multiplier and the
  * optional weekly cap. Never grants a negative amount: mistakes cost nothing.
@@ -67,7 +64,7 @@ export function grantTickets(
   }
   if (amount <= 0) return { state, granted: 0 };
   const tx: TicketTransaction = {
-    id: nextId('tx', state.tickets),
+    id: newId('tx'),
     at: now.toISOString(),
     amount,
     reason,
@@ -83,7 +80,7 @@ export function requestReward(state: AppState, rewardId: string, now: Date): App
   if (!reward || !reward.active) throw new TicketError('reward-unavailable', 'Reward is not available');
   if (balance(state.tickets) < reward.cost) throw new TicketError('not-enough', 'Not enough tickets yet');
   const request: RewardRequest = {
-    id: nextId('req', state.requests),
+    id: newId('req'),
     rewardId: reward.id,
     title: reward.title,
     titleHe: reward.titleHe,
@@ -93,7 +90,7 @@ export function requestReward(state: AppState, rewardId: string, now: Date): App
     requestedAt: now.toISOString(),
   };
   const hold: TicketTransaction = {
-    id: nextId('tx', state.tickets),
+    id: newId('tx'),
     at: now.toISOString(),
     amount: -reward.cost,
     reason: 'request',
@@ -127,7 +124,7 @@ export function decideRequest(
   const at = now.toISOString();
   if (decision === 'approve') return patchRequest(state, requestId, { status: 'approved', decidedAt: at });
   const refund: TicketTransaction = {
-    id: nextId('tx', state.tickets),
+    id: newId('tx'),
     at,
     amount: req.cost,
     reason: 'refund',
@@ -171,7 +168,7 @@ export function saveReward(
       rewards: state.rewards.map((r) => (r.id === reward.id ? { ...r, ...reward, id: r.id, cost } : r)),
     };
   }
-  const id = `rw-${now.getTime().toString(36)}-${state.rewards.length + 1}`;
+  const id = newId('rw');
   return { ...state, rewards: [...state.rewards, { ...reward, id, cost }] };
 }
 
@@ -193,7 +190,7 @@ export function giftTickets(
   const n = Math.round(amount);
   if (!Number.isFinite(n) || n < 1) throw new TicketError('invalid', 'Gift must be at least 1 ticket');
   const tx: TicketTransaction = {
-    id: nextId('tx', state.tickets),
+    id: newId('tx'),
     at: now.toISOString(),
     amount: n,
     reason: 'parent-gift',

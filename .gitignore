@@ -2,3 +2,5 @@ node_modules
 dist
 *.log
 .vite
+.env.local
+.env.*.local
