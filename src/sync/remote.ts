@@ -31,7 +31,11 @@ function toSyncError(e: PostgrestError | Error | unknown): SyncError {
   if (e instanceof SyncError) return e;
   const err = e as Partial<PostgrestError> & { message?: string };
   const msg = err.message ?? String(e);
-  if (err.code === '42703' || err.code === 'PGRST204' || /synced_at|code_key/.test(msg)) return new SyncError('needs-migration', msg);
+  // A missing sync column (migration not run) or a stale API schema cache right after running it.
+  // Only these count: other errors can mention the trigger names (eq_touch_synced_at…) too.
+  if (err.code === '42703' || err.code === 'PGRST204' || /column .*(synced_at|code_key)|schema cache/i.test(msg)) {
+    return new SyncError('needs-migration', `${err.code ?? ''} ${msg}`.trim());
+  }
   if (msg.includes('stale_rev')) return new SyncError('conflict', msg);
   if (err.code === '42501' || err.code === 'PGRST301') return new SyncError('denied', msg);
   if (/fetch|network|Failed to fetch|NetworkError|Load failed/i.test(msg)) return new SyncError('offline', msg);

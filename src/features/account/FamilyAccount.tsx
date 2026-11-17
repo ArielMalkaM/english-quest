@@ -274,7 +274,7 @@ function SyncStatusCard() {
     idle: ['✅', `ההתקדמות של כל הילדים מסונכרנת בין המכשירים. ${last}`, `Every child’s progress is synced between devices. ${last}`],
     offline: ['📴', 'אין חיבור לאינטרנט. השינויים נשמרים במכשיר ויעלו אוטומטית כשהחיבור יחזור.', 'No internet connection. Changes are saved on this device and upload automatically when it is back.'],
     'needs-choice': ['🤝', 'צריך להחליט איך לחבר את המכשיר הזה לחשבון (למטה).', 'Choose how to connect this device to the account (below).'],
-    'needs-migration': ['🛠️', 'מסד הנתונים צריך עדכון: הריצו את supabase/migrations/002_sync.sql ב-Supabase.', 'The database needs an update: run supabase/migrations/002_sync.sql in Supabase.'],
+    'needs-migration': ['🛠️', 'השרת לא מכיר עדיין את עמודות הסנכרון. אם כבר הרצתם את supabase/migrations/002_sync.sql, הריצו ב-SQL Editor גם: NOTIFY pgrst, \'reload schema\';', 'The server does not know the sync columns yet. If you already ran supabase/migrations/002_sync.sql, also run this in the SQL Editor: NOTIFY pgrst, \'reload schema\';'],
     error: ['⚠️', 'הסנכרון נכשל. ננסה שוב אוטומטית.', 'Sync failed. It will try again automatically.'],
   };
   const [emoji, he, en] = text[sync.status];
@@ -283,7 +283,7 @@ function SyncStatusCard() {
       <span aria-hidden="true">{emoji}</span>
       <p>
         {t(he, en)}
-        {sync.status === 'error' && sync.error && <><br /><small dir="ltr">{sync.error}</small></>}
+        {(sync.status === 'error' || sync.status === 'needs-migration') && sync.error && <><br /><small dir="ltr" className="sync-error">{sync.error}</small></>}
         {sync.status !== 'syncing' && sync.status !== 'off' && (
           <>
             <br />
