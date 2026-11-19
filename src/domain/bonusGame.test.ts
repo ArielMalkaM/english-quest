@@ -87,10 +87,13 @@ describe('daily unlock', () => {
   });
 });
 
+/** Node's environment (tests run in Node; the app's type settings only include browser types). */
+const env = (globalThis as unknown as { process: { env: Record<string, string | undefined> } }).process.env;
+
 describe('day boundaries', () => {
-  const originalTz = process.env.TZ;
+  const originalTz = env.TZ;
   afterEach(() => {
-    process.env.TZ = originalTz;
+    env.TZ = originalTz;
   });
 
   it('a quest finished at 23:59 unlocks that day only; the next day is locked again', () => {
@@ -117,17 +120,17 @@ describe('day boundaries', () => {
 
   it('uses the device time zone, like quest sessions do', () => {
     const instant = new Date(Date.UTC(2026, 10, 19, 22, 30)); // 19 Nov 22:30 UTC
-    process.env.TZ = 'Asia/Jerusalem';
+    env.TZ = 'Asia/Jerusalem';
     expect(localDate(instant)).toBe('2026-11-20');
-    process.env.TZ = 'America/New_York';
+    env.TZ = 'America/New_York';
     expect(localDate(instant)).toBe('2026-11-19');
   });
 
   it('a daylight-saving change day is still one day', () => {
-    process.env.TZ = 'Asia/Jerusalem'; // clocks go back on 25 Oct 2026
+    env.TZ = 'Asia/Jerusalem'; // clocks go back on 25 Oct 2026
     expect(localDate(new Date(2026, 9, 25, 0, 30))).toBe('2026-10-25');
     expect(localDate(new Date(2026, 9, 25, 23, 30))).toBe('2026-10-25');
-    process.env.TZ = 'America/New_York'; // clocks go back on 1 Nov 2026
+    env.TZ = 'America/New_York'; // clocks go back on 1 Nov 2026
     expect(localDate(new Date(2026, 10, 1, 0, 30))).toBe('2026-11-01');
     expect(localDate(new Date(2026, 10, 1, 23, 30))).toBe('2026-11-01');
   });
