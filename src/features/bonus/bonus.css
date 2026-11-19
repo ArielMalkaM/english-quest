@@ -1,0 +1,102 @@
+/* ── Daily Bonus Adventure (English Gate Racer) ── */
+
+/* Unlock pop-up */
+.bonus-backdrop { z-index: 45; }
+.bonus-modal { max-width: 460px; background: linear-gradient(180deg, #fff8ec 0%, #ffffff 60%); border: 4px solid var(--yellow); }
+.bonus-modal h2 { font-size: 1.35rem; line-height: 1.25; }
+.bonus-modal-actions { display: grid; gap: 10px; margin-top: 4px; }
+.btn.bonus-play { font-size: 1.2rem; min-height: 56px; background: var(--coral); box-shadow: 0 4px 0 var(--coral-d); color: var(--navy); letter-spacing: 0.02em; }
+
+/* "Your bonus is waiting" banner */
+.bonus-banner {
+  display: flex; align-items: center; gap: 12px; width: calc(100% - 24px); max-width: 860px; margin: 12px auto 0;
+  border: 0; border-radius: 18px; padding: 10px 14px; text-align: start; color: #fff;
+  background: linear-gradient(90deg, var(--violet) 0%, #c2255c 100%); box-shadow: 0 4px 0 #4a32b8;
+}
+.bonus-banner:active { transform: translateY(2px); box-shadow: 0 2px 0 #4a32b8; }
+.bonus-banner-icon { font-size: 1.8rem; animation: bob 1.6s ease-in-out infinite; }
+.bonus-banner-text { display: grid; flex: 1; line-height: 1.25; }
+.bonus-banner-text span { font-size: 0.85rem; opacity: 0.9; }
+.bonus-banner-go { background: var(--yellow); color: var(--navy); font-weight: 800; border-radius: 12px; padding: 6px 12px; white-space: nowrap; }
+
+/* Full-screen pages (locked / busy / summary) */
+.bonus-screen {
+  min-height: 100vh; min-height: 100dvh; display: grid; place-items: center; padding: 16px;
+  background: radial-gradient(circle at 50% 0%, #ffe9a8 0%, #ffd166 30%, #ff9f6b 100%);
+}
+.bonus-card {
+  background: #fff; border-radius: 24px; padding: 22px; max-width: 460px; width: 100%; text-align: center;
+  display: grid; gap: 12px; justify-items: center; box-shadow: 0 10px 0 rgba(20, 33, 61, 0.12), 0 24px 50px rgba(20, 33, 61, 0.25);
+  animation: pop-in 0.25s ease;
+}
+.bonus-card .btn { min-width: 200px; font-size: 1.1rem; }
+.bonus-card.summary h1 { font-size: 1.8rem; color: var(--violet); }
+.summary-lead { font-size: 1.1rem; font-weight: 700; }
+.summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 8px; width: 100%; }
+.summary-grid li { background: var(--cream); border-radius: 16px; padding: 10px 6px; display: grid; justify-items: center; gap: 2px; }
+.summary-grid li > span:first-child { font-size: 1.5rem; }
+.summary-grid b { font-size: 1.35rem; }
+.summary-grid li > span:last-child { font-size: 0.85rem; color: var(--muted); }
+.summary-cheer { font-weight: 700; color: #0f7f74; } /* 4.7:1 on white */
+
+/* Game screen */
+.bonus-game {
+  height: 100vh; height: 100dvh; display: grid; grid-template-rows: auto auto 1fr auto; grid-template-columns: minmax(0, 1fr);
+  background: var(--navy); color: #fff; overflow: hidden; touch-action: manipulation; user-select: none;
+}
+.bonus-hud { display: flex; align-items: center; gap: 8px; padding: 8px 12px; }
+.bonus-hud .icon-btn { background: rgba(255, 255, 255, 0.16); color: #fff; }
+.bonus-hud :focus-visible { outline-color: var(--yellow); }
+.hud-pill {
+  display: inline-flex; align-items: center; gap: 6px; background: rgba(255, 255, 255, 0.14); border-radius: 999px;
+  padding: 6px 12px; font-weight: 800; font-variant-numeric: tabular-nums; font-size: min(1.05rem, 4.6vw);
+  min-width: 0; white-space: nowrap;
+}
+/* The HUD never grows wider than a phone, even with large text on. */
+.hud-time { margin-inline-end: auto; background: var(--aqua); color: var(--navy); font-size: min(1.2rem, 5.2vw); }
+@media (max-width: 400px) { .bonus-hud { gap: 6px; padding: 8px; } .hud-pill { padding: 5px 9px; } }
+.hud-time.low { background: var(--coral); color: var(--navy); animation: bob 1s ease-in-out infinite; }
+.hud-coins { background: var(--yellow); color: var(--navy); }
+
+.bonus-question {
+  margin: 0 12px 8px; min-height: 92px; background: #fff; color: var(--navy); border-radius: 20px; padding: 8px 14px;
+  display: grid; place-content: center; justify-items: center; text-align: center; gap: 2px;
+  box-shadow: 0 5px 0 rgba(0, 0, 0, 0.25);
+}
+.q-ask { font-size: 0.95rem; color: var(--muted); font-weight: 600; }
+.q-prompt { display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 1.6rem; font-weight: 800; line-height: 1.2; flex-wrap: wrap; }
+.q-prompt .en { text-align: center; }
+.q-emoji { font-size: 2rem; }
+.q-speak { width: 40px; height: 40px; background: var(--aqua-soft); }
+.q-feedback { display: grid; gap: 4px; font-size: 1.15rem; }
+.q-feedback.good { color: #15803d; animation: pop-in 0.3s ease; }
+.q-feedback.soft { color: var(--navy); }
+.q-why { font-size: 0.9rem; color: var(--muted); font-weight: 400; }
+
+.bonus-road { position: relative; min-height: 0; }
+.bonus-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: pointer; }
+.bonus-overlay { position: absolute; inset: 0; display: grid; place-items: center; padding: 16px; background: rgba(20, 33, 61, 0.45); }
+.bonus-overlay .bonus-card { color: var(--navy); }
+.bonus-overlay.tutorial { background: rgba(20, 33, 61, 0.25); align-items: start; padding-top: 24px; }
+.tutorial-list { display: grid; gap: 6px; text-align: start; font-weight: 600; }
+.tutorial-list li { display: flex; gap: 10px; align-items: center; }
+.tutorial-list li span { font-size: 1.3rem; }
+
+.bonus-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); }
+.steer-btn {
+  border: 0; border-radius: 18px; min-height: 64px; font-size: 2rem; font-weight: 800; color: var(--navy);
+  background: var(--yellow); box-shadow: 0 5px 0 var(--yellow-d);
+}
+.steer-btn:active { transform: translateY(4px); box-shadow: 0 1px 0 var(--yellow-d); }
+.steer-btn:focus-visible { outline-color: #fff; }
+
+@media (min-width: 900px) {
+  .bonus-question { max-width: 640px; width: calc(100% - 24px); margin-inline: auto; }
+  .bonus-controls { max-width: 640px; width: 100%; margin: 0 auto; }
+}
+@media (max-height: 560px) {
+  .bonus-question { min-height: 64px; padding: 4px 10px; }
+  .q-prompt { font-size: 1.25rem; }
+  .steer-btn { min-height: 48px; }
+}
+.reduce-motion .bonus-banner-icon, .reduce-motion .hud-time.low { animation: none; }

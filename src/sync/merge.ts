@@ -9,6 +9,7 @@
 //   sessions, badges combined; word and skill counters take the larger value) and the newer
 //   profile/settings win.
 // - The shared part (parent PIN, rewards) follows the same rule with the household rev.
+import { mergeBonusDays } from '../domain/bonusGame';
 import { newId } from '../domain/ids';
 import type { ActivityAttempt, ChildRecord, Household, Progress, RewardRequest, SyncState, SyncTable, Tally, TicketTransaction } from '../domain/types';
 import type { ChildRow, PushBatch, RemoteSnapshot } from './rows';
@@ -137,6 +138,8 @@ export function mergeProgress(win: Progress, other: Progress): Progress {
     tryAgainDays: [...new Set([...win.tryAgainDays, ...other.tryAgainDays])].sort(),
     streakMilestones: [...new Set([...win.streakMilestones, ...other.streakMilestones])].sort((a, b) => a - b),
     attempts: unionById(win.attempts, other.attempts, byTime((a) => a.finishedAt)),
+    // Bonus game time and results only move forward, so playing on two devices never adds time.
+    ...(win.bonusDays || other.bonusDays ? { bonusDays: mergeBonusDays(win.bonusDays, other.bonusDays) } : {}),
   };
 }
 

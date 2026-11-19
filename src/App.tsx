@@ -3,6 +3,8 @@ import { Avatar, TicketPill } from './components/ui';
 import { computeStreak } from './domain/progress';
 import { balance } from './domain/tickets';
 import type { StepId } from './domain/types';
+import { BonusGame } from './features/bonus/BonusGame';
+import { BonusBanner, BonusUnlockedModal } from './features/bonus/BonusPrompt';
 import { BadgeCollection, WordCollection } from './features/collection/Collections';
 import { IslandMap } from './features/island/IslandMap';
 import { Onboarding } from './features/onboarding/Onboarding';
@@ -50,6 +52,7 @@ export function App() {
   if (page === 'play' && a && STEPS.includes(b as StepId)) {
     return <ActivityRunner key={`${a}-${b}`} lessonId={a} step={b as StepId} />;
   }
+  if (page === 'bonus') return <BonusGame key={activeChildId} />;
 
   const nav = [
     { id: '', emoji: '🏝️', label: t('האי', 'Island') },
@@ -115,8 +118,10 @@ export function App() {
         ))}
       </nav>
       <main id="main" className="content" tabIndex={-1}>
+        {page !== 'parent' && page !== 'settings' && <BonusBanner />}
         {view}
       </main>
+      {page !== 'parent' && page !== 'settings' && <BonusUnlockedModal />}
     </div>
   );
 }

@@ -24,6 +24,7 @@ On first launch you get onboarding (nickname, grade, avatar, parent PIN). To see
 | Daily quest | Warm-up → Learn by playing → Mission challenge → Create & communicate, plus an optional bonus. Estimated time, "nearly done" state, celebration, "You learned…" recap and a peek at the next mission. |
 | 13 game types | Match, spell-to-unlock, listen-and-choose, story gaps, sentence bridge (tap / keyboard / drag), sort into crates, reading with tap-the-clue, detective mode (answer + find the evidence), dialogue replies, message builder + typing, free writing with a word meter, scene writer, talk-to-the-guide (optional microphone), speed round (optional, no penalty). |
 | Weekly plan | Six seeded weeks × five quests (Mon–Thu + a Boss Mission). One theme, word list and grammar focus run through every activity of the week. Includes a weekly review and a "no such thing as behind" catch-up path. |
+| Daily Bonus Adventure | Finishing the day's quest unlocks 5 minutes of **English Gate Racer**: steer a car through the gate with the right answer. Questions come from the child's own grade plan and progress; the time is shared across devices and cannot be restarted. See [docs/bonus-game.md](docs/bonus-game.md). |
 | Collections | Word collection (audio, example, optional Hebrew, mastery stars), badges and island progress. |
 | Tickets | Ticket pouch, history, Wish Board. A request holds tickets until a parent decides; declining refunds them. |
 | Grade plans | Six weeks × five quests for every grade. Grade 2 is listening and speaking only (no reading or typing required, including warm-ups, bonuses and comeback games); grade 3 adds letters, sounds and copying words; grade 4 digraphs, magic e and short texts; grade 5 Band I grammar in context; grade 6 is the original hand-written plan. |
@@ -45,6 +46,8 @@ src/
     review.ts        Spaced "comeback" scheduling (Leitner boxes, counted in sessions)
     dailyPlan.ts     Builds warm-ups, comeback games and bonus missions from the week's data
     progress.ts      Unlocking, streaks, island levels, badges, weekly summary
+    bonusGame.ts     Daily bonus game: unlock, play-time allowance, merging across devices
+    bonusQuestions.ts Bonus game questions for the child's grade and progress
     parentAuth.ts    PIN hashing, parent session, authorization guard
   data/
     curriculum/      Structured content: week1.ts … week6.ts, grammar labels, authoring helpers
@@ -52,7 +55,7 @@ src/
     repository.ts    AppRepository interface + LocalStorageRepository
   state/store.tsx    React context: loads via the repository, exposes typed actions
   features/          island, quest, activities (games), week, collection, tickets, parent,
-                     onboarding, settings
+                     onboarding, settings, bonus (Gate Racer canvas game + its screens)
   components/        Shared UI (buttons, speech button, avatar, confetti)
   lib/               Speech synthesis / recognition, hash router, text helpers
 ```
@@ -92,7 +95,7 @@ Forgot the PIN in the prototype? Remove the `english-quest/state` key from the b
 
 ## Saved data and upgrades
 
-Current format: version 3 (adds a version number per child and for the shared part, and random record ids so several devices can be merged later). Version 2 saves upgrade automatically.
+Current format: version 3 (adds a version number per child and for the shared part, and random record ids so several devices can be merged later). Version 2 saves upgrade automatically. Each child's progress may also hold `bonusDays` (bonus-game time and results per day); it is optional, so older saves load unchanged. The bonus game also keeps `english-quest/device-id` and `english-quest/bonus-ledger` in local storage (see [docs/bonus-game.md](docs/bonus-game.md)).
 
 Data is stored under `english-quest/state` as a `Household` (version 2): the parent PIN, shared rewards and a list of children. A save from the single-child version (version 1) is upgraded automatically on first load: that learner becomes the first child (grade 6) with every quest, ticket, word stat, badge and request kept, and the original save is copied to `english-quest/state-v1-backup`. Grade 6 lesson ids (`w1d1`…) are unchanged, so the plan continues where it stopped.
 - **Writing feedback:** `WriteGame` currently checks length, script and basic punctuation only — a parent or teacher review step (or a moderated checker) could plug in at `onDone`.

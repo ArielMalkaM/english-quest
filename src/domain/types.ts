@@ -344,6 +344,32 @@ export interface Progress {
   badges: { id: string; at: string }[];
   tryAgainDays: string[];
   streakMilestones: number[];
+  /** Daily Bonus Adventure, keyed by local date (YYYY-MM-DD). Absent in saves from before the game existed. */
+  bonusDays?: Record<string, BonusDay>;
+}
+
+/** Bonus-game play time and results recorded by one device. */
+export interface BonusPart {
+  usedMs: number;
+  score: number;
+  correct: number;
+  answered: number;
+  coins: number;
+  bestStreak: number;
+}
+
+/**
+ * One day's bonus-game allowance: unlocked by finishing a quest that day, 5 minutes of play.
+ * The top-level numbers are the day totals (all devices together).
+ */
+export interface BonusDay extends BonusPart {
+  date: string;
+  /** When the "you unlocked it" pop-up was answered (Play now / Play later). */
+  promptedAt?: string;
+  startedAt?: string;
+  finishedAt?: string;
+  /** Per-device records, keyed by device id; the totals add these up. */
+  parts?: Record<string, BonusPart>;
 }
 
 /**

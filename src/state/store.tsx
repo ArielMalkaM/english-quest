@@ -12,6 +12,8 @@ import {
   updateChild,
   verifyChildCode,
 } from '../domain/household';
+import type { BonusCheckpoint } from '../domain/bonusGame';
+import { markBonusPrompted, recordBonus } from '../domain/bonusGame';
 import { assertParent, isParentAuthorized, setPin, verifyPin } from '../domain/parentAuth';
 import { emptyProgress, evaluateBadges } from '../domain/progress';
 import type { AttemptInput, StepOutcome } from '../domain/session';
@@ -51,6 +53,10 @@ export interface Store {
     signOutChild(): void;
     completeStep(lessonId: string, step: StepId, attempts: AttemptInput[]): StepOutcome;
     requestReward(rewardId: string): void;
+    /** The child answered the bonus-game pop-up (Play now / Play later). */
+    bonusPrompted(): void;
+    /** Saves a running bonus game for its local date (time used and results only grow). */
+    bonusCheckpoint(date: string, cp: BonusCheckpoint): void;
     updateChildSettings(patch: Partial<ChildSettings>): void;
     unlockParent(pin: string): boolean;
     createParentPin(pin: string): void;
@@ -270,6 +276,15 @@ export function StoreProvider({ repository, children }: { repository: AppReposit
         requestReward(rewardId) {
           const now = new Date();
           onChild((v) => evaluateBadges(requestReward(v, rewardId, now), now).state);
+        },
+        bonusPrompted() {
+          const progress = markBonusPrompted(boundChild().progress, new Date());
+          if (progress === boundChild().progress) return; // already answered: nothing to save or sync
+          onChild((v) => ({ ...v, progress }));
+        },
+        bonusCheckpoint(date, cp) {
+          const now = new Date();
+          onChild((v) => ({ ...v, progress: recordBonus(v.progress, date, cp, now) }));
         },
         updateChildSettings(patch) {
           if (!findChild(hh(), boundId)) {
