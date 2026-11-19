@@ -5,6 +5,10 @@ The child drives a car down a road; each English question sends a row of 2–3 g
 car, and whichever lane the car is in when the gates arrive is the answer. Wrong answers never
 stop the car: the right gate turns green and the explanation from the lesson is shown.
 
+The race is drawn in **3D with Three.js** (chase camera behind the car, gate arches with sign
+panels, spinning coins, emoji scenery and a sky per stage). Devices without WebGL get the same
+game as a flat **2D** canvas view.
+
 ## Where the code lives
 
 | File | What it does |
@@ -12,7 +16,12 @@ stop the car: the right gate turns green and the explanation from the lesson is 
 | `src/domain/bonusGame.ts` | Unlock rules, statuses, recording play time and results, merging records (pure, tested) |
 | `src/domain/bonusQuestions.ts` | Builds the question deck for the child's grade and progress (pure, tested) |
 | `src/features/bonus/session.ts` | What the screen shows when opened (`planEntry`) and the running game's clock/score (`BonusRun`) |
-| `src/features/bonus/gateRacer.ts` | Canvas game loop: road, gates, car, coins, particles (no dependencies) |
+| `src/features/bonus/raceSim.ts` | The race rules, independent of drawing: lanes, gates, timing, scoring, coins, stages |
+| `src/features/bonus/gateRacer.ts` | Game loop: advances the rules, charges play time, hands each frame to the view |
+| `src/features/bonus/views.ts` | Picks the view: 3D when WebGL works (Three.js loaded on demand), else 2D |
+| `src/features/bonus/view3d.ts` | Three.js view: camera fitting, car, gate arches, coins, scenery, effects |
+| `src/features/bonus/view2d.ts` | Flat 2D canvas view (fallback) |
+| `src/features/bonus/labels.ts` | Gate panels and labels, drawn with the canvas API (2D gates and 3D sign textures) |
 | `src/features/bonus/ledger.ts` | Browser-wide tab guard and the per-device id |
 | `src/features/bonus/BonusGame.tsx` | `#/bonus` screen: tutorial, HUD, question panel, pause, summary |
 | `src/features/bonus/BonusPrompt.tsx` | "You unlocked it" pop-up and the "bonus is waiting" banner |
@@ -103,6 +112,32 @@ quests once there are at least six), and grammar / dialogue items from quests th
 Coins and points are **game-only**: they are stored in `bonusDays` and shown in the summary, but
 never create Quest Tickets (tickets buy real rewards and stay under the parent's rules).
 
+## 3D view
+
+- **Library:** `three` 0.187.0 (pinned). `view3d.ts` is loaded with a dynamic `import()`, so Vite
+  puts Three.js in its own file (about 140 KB gzipped) that is downloaded only when the bonus game
+  opens; the rest of the app is unchanged in size.
+- **Choosing the view:** `views.ts` checks WebGL on a throw-away canvas, then creates the 3D view on
+  a fresh canvas; if WebGL is missing or the 3D view fails to start, the 2D view is used on another
+  fresh canvas (a canvas cannot switch from WebGL to 2D). The start button says "Loading the race…"
+  until a view is ready.
+- **Troubleshooting switch:** set `localStorage['english-quest/bonus-renderer']` to `"2d"` (or `"3d"`)
+  to force a view on one device.
+- **World:** lanes are 2.4 units wide; a row of gates appears 18 units ahead (`ROAD_LEN`) and reaches
+  the car after the grade's gate time, exactly as in 2D (the rules live in `raceSim.ts`).
+- **Camera:** `placeCamera()` moves the chase camera back until the whole three-lane road and the
+  back of the car fit the screen, with a wider field of view on tall phones. Tested for six screen
+  shapes from a small phone to a wide desktop.
+- **Readability:** far signs are smaller in perspective, so in 3D the question panel also shows the
+  answers as chips in lane order and in the gates' colours; each gate also paints a stripe in its
+  colour across its lane on the road.
+- **Taps:** a tap on a sign picks that sign's lane; elsewhere the lane under the finger on the road;
+  above the horizon, the left / middle / right part of the screen.
+- **Performance:** one draw call per object, shared geometries and materials, instanced particles,
+  canvas textures cached and disposed when gates leave. If frames stay slow the view lowers its
+  resolution to 1× automatically. Everything is disposed (including the WebGL context) when the
+  game screen closes.
+
 ## Accessibility and devices
 
 - Steering: ◀ ▶ buttons (64 px tall), tapping a lane on the road, arrow keys or A/D. P or Esc pauses.
@@ -112,8 +147,9 @@ never create Quest Tickets (tickets buy real rewards and stay under the parent's
 - All text meets WCAG AA contrast (gate colours are checked in `gateRacer.test.ts`).
 - Reduced motion: no confetti, screen shake or exhaust; fewer particles. Large text: the HUD scales
   with the screen width so it never overflows a phone.
-- Performance: one canvas, no images; a frame takes well under 1 ms of script time in a desktop
-  browser. Gate label layout is measured once and cached.
+- Performance: no image files (all textures are drawn at runtime); a frame takes about 0.4 ms of
+  script time in 3D and 0.3 ms in 2D in a desktop browser. Gate label layout is measured once and
+  cached.
 
 ## Tests
 
@@ -123,7 +159,8 @@ never create Quest Tickets (tickets buy real rewards and stay under the parent's
 | `src/domain/bonusQuestions.test.ts` | Every grade at several progress points: valid questions, correct answers checked against the curriculum, on-level content, no repeats, reinforcement |
 | `src/features/bonus/session.test.ts` | Opening the screen, countdown, scoring, refresh / close / resume, restart attempts, handing over to a second device |
 | `src/features/bonus/ledger.test.ts` | Second-tab guard, release on unload, corrupt or blocked storage, device id |
-| `src/features/bonus/gateRacer.test.ts` | Game loop with a stub canvas: lanes and answers, gate timing, streaks, tap/keyboard steering, time charging, coins, contrast |
+| `src/features/bonus/gateRacer.test.ts` | Game loop + rules through the 2D view on a stub canvas: lanes and answers, gate timing, streaks, tap/keyboard steering, time charging, coins, contrast |
+| `src/features/bonus/view3d.test.ts` | 3D layout maths (real Three.js, no WebGL needed): lanes, camera framing and gate visibility / sign size on six screen shapes |
 | `src/sync/bonus.sync.test.ts` | Two devices through the in-memory family account: unlock and pop-up sync, shared allowance, offline play on both, idempotent sync, no tickets |
 
 ## Known limits

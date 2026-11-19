@@ -8,6 +8,8 @@ import { navigate } from '../../lib/router';
 import { chime, speak, stopSpeaking } from '../../lib/speech';
 import { useStore } from '../../state/store';
 import { GateRacer } from './gateRacer';
+import { GATE_COLORS } from './labels';
+import { createRaceView } from './views';
 import type { RacerResult } from './gateRacer';
 import { deviceId, openElsewhere, readLedger, releaseLedger, writeLedger } from './ledger';
 import type { Entry, RunStart } from './session';
@@ -76,7 +78,9 @@ function RaceSession({ date, start, tutorial }: { date: string; start: RunStart;
   const { state, actions, t, lang, childId } = useStore();
   const sound = state.settings.sound;
   const reducedMotion = state.settings.reducedMotion;
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const roadRef = useRef<HTMLDivElement>(null);
+  /** Which view is drawing the race (null while the 3D engine loads). */
+  const [viewKind, setViewKind] = useState<'2d' | '3d' | null>(null);
   const racerRef = useRef<GateRacer | null>(null);
   const [run] = useState(() => new BonusRun(start));
   const resumed = start.totalUsed > 0;
@@ -128,16 +132,24 @@ function RaceSession({ date, start, tutorial }: { date: string; start: RunStart;
     [run, save],
   );
 
-  // Create the racer once the canvas is on screen.
+  // Create the view (3D when possible) and the racer once the road area is on screen.
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const racer = new GateRacer({
-      canvas,
+    const host = roadRef.current;
+    if (!host) return;
+    let cancelled = false;
+    let racer: GateRacer | null = null;
+    let ro: ResizeObserver | null = null;
+    const car = { emoji: state.profile?.avatar.emoji ?? '🧒', color: state.profile?.avatar.color ?? '#2ec4b6' };
+    void createRaceView(host, { car, reducedMotion }).then((view) => {
+      if (cancelled) {
+        view.destroy();
+        view.canvas.remove();
+        return;
+      }
+      racer = new GateRacer({
+      view,
       nextQuestion: () => deck.next(),
       gateSeconds: GATE_SECONDS[deck.grade],
-      car: { emoji: state.profile?.avatar.emoji ?? '🧒', color: state.profile?.avatar.color ?? '#2ec4b6' },
-      reducedMotion,
       playedSeconds: start.totalUsed / 1000,
       callbacks: {
         onTick(dt) {
@@ -172,12 +184,18 @@ function RaceSession({ date, start, tutorial }: { date: string; start: RunStart;
         },
       },
     });
-    racerRef.current = racer;
-    const ro = new ResizeObserver(() => racer.resize());
-    ro.observe(canvas);
+      racerRef.current = racer;
+      ro = new ResizeObserver(() => racer?.resize());
+      ro.observe(host);
+      setViewKind(view.kind);
+    });
     return () => {
-      ro.disconnect();
-      racer.destroy();
+      cancelled = true;
+      ro?.disconnect();
+      if (racer) {
+        racer.destroy();
+        racer.view.canvas.remove();
+      }
       racerRef.current = null;
     };
     // The racer lives for the whole session; its callbacks read refs.
@@ -185,7 +203,7 @@ function RaceSession({ date, start, tutorial }: { date: string; start: RunStart;
   }, []);
 
   const play = useCallback(() => {
-    if (run.finished) return;
+    if (run.finished || !racerRef.current) return;
     // A game paused (or left open) past midnight belongs to yesterday: its time is over.
     if (localDate(new Date()) !== date) {
       finish(true);
@@ -296,6 +314,22 @@ function RaceSession({ date, start, tutorial }: { date: string; start: RunStart;
               )}
               {question.say && <SpeakButton text={question.say} className="q-speak" />}
             </div>
+            {viewKind === '3d' && (
+              <div className="q-options" dir="ltr" aria-hidden="true">
+                {question.options.map((o, i) => (
+                  <span key={i} className="q-chip" style={{ background: GATE_COLORS[i % GATE_COLORS.length] }}>
+                    {o.text ? (
+                      <span lang="en">{o.emoji ? `${o.emoji} ` : ''}{o.text}</span>
+                    ) : (
+                      <>
+                        <span className="q-chip-emoji">{o.emoji}</span>
+                        {o.he && <bdi lang="he">{o.he}</bdi>}
+                      </>
+                    )}
+                  </span>
+                ))}
+              </div>
+            )}
             <span className="sr-only">
               {t('שערים משמאל לימין:', 'Gates from left to right:')} {question.options.map((o, i) => `${i + 1}. ${o.text || [o.emoji, o.he].filter(Boolean).join(" ")}`).join(', ')}
             </span>
@@ -320,11 +354,12 @@ function RaceSession({ date, start, tutorial }: { date: string; start: RunStart;
       </div>
 
       <div className="bonus-road">
-        <canvas
-          ref={canvasRef}
-          className="bonus-canvas"
+        <div
+          ref={roadRef}
+          className={`bonus-stage ${viewKind ? `is-${viewKind}` : 'is-loading'}`}
           onPointerDown={(e) => {
-            racerRef.current?.tapAt(e.clientX);
+            if (!racerRef.current) return;
+            racerRef.current.tapAt(e.clientX, e.clientY);
             if (phaseRef.current === 'tutorial') setTutorialStep((s) => Math.max(s, 1));
           }}
           aria-label={t('מסלול המרוץ. הקישו על נתיב כדי לנסוע אליו.', 'Race track. Tap a lane to drive there.')}
@@ -350,7 +385,7 @@ function RaceSession({ date, start, tutorial }: { date: string; start: RunStart;
                     <li><span aria-hidden="true">💰</span> {t('אספו מטבעות בדרך', 'Collect coins on the way')}</li>
                     <li><span aria-hidden="true">⏱️</span> {t('יש לכם 5 דקות!', 'You have 5 minutes!')}</li>
                   </ul>
-                  <Button autoFocus onClick={play}>{t('יוצאים לדרך! 🏁', 'Let’s race! 🏁')}</Button>
+                  <Button autoFocus onClick={play} disabled={!viewKind}>{viewKind ? t('יוצאים לדרך! 🏁', 'Let’s race! 🏁') : t('טוענים את המרוץ…', 'Loading the race…')}</Button>
                 </>
               )}
             </div>
@@ -367,7 +402,7 @@ function RaceSession({ date, start, tutorial }: { date: string; start: RunStart;
                   ? t(`נשארו לכם ${clock(leftMs)} מהיום. ממשיכים?`, `You have ${clock(leftMs)} left from today. Keep going?`)
                   : t('סעו דרך השער הנכון ואספו מטבעות!', 'Drive through the right gate and collect coins!')}
               </p>
-              <Button autoFocus onClick={play}>{resumed ? t('ממשיכים! ▶', 'Continue! ▶') : t('יוצאים לדרך! 🏁', 'Let’s race! 🏁')}</Button>
+              <Button autoFocus onClick={play} disabled={!viewKind}>{!viewKind ? t('טוענים את המרוץ…', 'Loading the race…') : resumed ? t('ממשיכים! ▶', 'Continue! ▶') : t('יוצאים לדרך! 🏁', 'Let’s race! 🏁')}</Button>
             </div>
           </div>
         )}

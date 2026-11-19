@@ -24,7 +24,7 @@ On first launch you get onboarding (nickname, grade, avatar, parent PIN). To see
 | Daily quest | Warm-up → Learn by playing → Mission challenge → Create & communicate, plus an optional bonus. Estimated time, "nearly done" state, celebration, "You learned…" recap and a peek at the next mission. |
 | 13 game types | Match, spell-to-unlock, listen-and-choose, story gaps, sentence bridge (tap / keyboard / drag), sort into crates, reading with tap-the-clue, detective mode (answer + find the evidence), dialogue replies, message builder + typing, free writing with a word meter, scene writer, talk-to-the-guide (optional microphone), speed round (optional, no penalty). |
 | Weekly plan | Six seeded weeks × five quests (Mon–Thu + a Boss Mission). One theme, word list and grammar focus run through every activity of the week. Includes a weekly review and a "no such thing as behind" catch-up path. |
-| Daily Bonus Adventure | Finishing the day's quest unlocks 5 minutes of **English Gate Racer**: steer a car through the gate with the right answer. Questions come from the child's own grade plan and progress; the time is shared across devices and cannot be restarted. See [docs/bonus-game.md](docs/bonus-game.md). |
+| Daily Bonus Adventure | Finishing the day's quest unlocks 5 minutes of **English Gate Racer**, a 3D racing game (Three.js, with a 2D fallback): steer a car through the gate with the right answer. Questions come from the child's own grade plan and progress; the time is shared across devices and cannot be restarted. See [docs/bonus-game.md](docs/bonus-game.md). |
 | Collections | Word collection (audio, example, optional Hebrew, mastery stars), badges and island progress. |
 | Tickets | Ticket pouch, history, Wish Board. A request holds tickets until a parent decides; declining refunds them. |
 | Grade plans | Six weeks × five quests for every grade. Grade 2 is listening and speaking only (no reading or typing required, including warm-ups, bonuses and comeback games); grade 3 adds letters, sounds and copying words; grade 4 digraphs, magic e and short texts; grade 5 Band I grammar in context; grade 6 is the original hand-written plan. |
@@ -55,7 +55,7 @@ src/
     repository.ts    AppRepository interface + LocalStorageRepository
   state/store.tsx    React context: loads via the repository, exposes typed actions
   features/          island, quest, activities (games), week, collection, tickets, parent,
-                     onboarding, settings, bonus (Gate Racer canvas game + its screens)
+                     onboarding, settings, bonus (Gate Racer: rules, 3D Three.js view, 2D fallback, screens)
   components/        Shared UI (buttons, speech button, avatar, confetti)
   lib/               Speech synthesis / recognition, hash router, text helpers
 ```

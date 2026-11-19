@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { GateQuestion } from '../../domain/bonusQuestions';
 import { GATE_COLORS, GateRacer, MISSED, POINTS_RIGHT, RIGHT, STREAK_MAX, STREAK_STEP } from './gateRacer';
 import type { RacerResult } from './gateRacer';
+import { Canvas2DView } from './view2d';
 
 // ── A canvas that draws nothing, and a frame clock the test drives by hand ──
 const ctx = new Proxy({} as Record<string | symbol, unknown>, {
@@ -63,11 +64,9 @@ function setup(questions: GateQuestion[], gateSeconds = 6, reducedMotion = false
   let coins = 0;
   let i = 0;
   const racer = new GateRacer({
-    canvas,
+    view: new Canvas2DView(canvas, { car: { emoji: '🦊', color: '#2ec4b6' }, reducedMotion }),
     nextQuestion: () => questions[Math.min(i++, questions.length - 1)],
     gateSeconds,
-    car: { emoji: '🦊', color: '#2ec4b6' },
-    reducedMotion,
     callbacks: {
       onQuestion: (x) => shown.push(x),
       onResult: (r) => results.push(r),
@@ -184,6 +183,16 @@ describe('time keeping', () => {
     expect(g.ticked() - before).toBeLessThanOrEqual(16);
   });
 
+  it('a tap that misses the road changes nothing', () => {
+    const g = setup([q(1)]);
+    const view = g.racer.view;
+    view.laneAt = () => null;
+    g.racer.start();
+    g.racer.tapAt(5, 5);
+    runFor(9000);
+    expect(g.results[0].chosen).toBe(1);
+  });
+
   it('destroy stops the loop for good', () => {
     const g = setup([q(1)]);
     g.racer.start();
@@ -223,11 +232,9 @@ describe('extras', () => {
   it('a resumed game continues in later scenery (no crash for any stage)', () => {
     const results: RacerResult[] = [];
     const racer = new GateRacer({
-      canvas,
+      view: new Canvas2DView(canvas, { car: { emoji: '🦊', color: '#fff' }, reducedMotion: false }),
       nextQuestion: () => q(1),
       gateSeconds: 6,
-      car: { emoji: '🦊', color: '#fff' },
-      reducedMotion: false,
       playedSeconds: 290,
       callbacks: { onQuestion: () => undefined, onResult: (r) => results.push(r), onCoin: () => undefined, onTick: () => undefined },
     });
