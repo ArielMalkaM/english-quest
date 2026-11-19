@@ -15,6 +15,8 @@ Syncing the children's progress through the account is the next phase (see the p
 3. **SQL Editor → New query** again: paste [`supabase/migrations/002_sync.sql`](../supabase/migrations/002_sync.sql) and **Run**.
    It adds what syncing between devices needs (server timestamps, version guards). Until it runs,
    the Account tab shows "The database needs an update".
+4. Run [`supabase/migrations/003_fix_rev_trigger.sql`](../supabase/migrations/003_fix_rev_trigger.sql) the same way
+   (fixes the version check on the families table; already included in 002 for new projects, harmless to run again).
 
 ## 2. Sign-in settings
 

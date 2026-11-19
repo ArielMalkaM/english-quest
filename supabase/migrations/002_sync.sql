@@ -41,9 +41,12 @@ language plpgsql
 set search_path = ''
 as $$
 begin
-  -- Marking a child as removed does not need a new version; every other change does.
-  if tg_table_name = 'children' and new.deleted_at is distinct from old.deleted_at and new.rev = old.rev then
-    return new;
+  -- Nested so families (no deleted_at column) never evaluates it (see 003_fix_rev_trigger.sql).
+  if tg_table_name = 'children' then
+    -- Marking a child as removed does not need a new version; every other change does.
+    if new.deleted_at is distinct from old.deleted_at and new.rev = old.rev then
+      return new;
+    end if;
   end if;
   if new.rev <= old.rev then
     raise exception 'stale_rev' using errcode = 'P0001', hint = 'Another device changed this first; pull and merge, then retry.';
