@@ -32,7 +32,7 @@ const FLOWER_SPOTS = [
   [36, 30], [62, 46], [35, 63], [66, 64], [48, 38], [30, 50], [70, 54], [42, 72], [58, 74], [54, 30],
 ];
 const FRIEND_SPOTS = [
-  [36, 44], [64, 28], [38, 82], [63, 84], [12, 55], [88, 55],
+  [36, 44], [64, 28], [38, 82], [63, 84], [12, 55], [88, 55], [50, 86],
 ];
 
 export function IslandMap() {
@@ -46,6 +46,10 @@ export function IslandMap() {
   const coreDone = CORE_STEPS.filter((s) => done.includes(s)).length;
   const minutesLeft = CORE_STEPS.filter((s) => !done.includes(s)).reduce((sum, s) => sum + STEP_MINUTES[s], 0);
   const streak = computeStreak(progress.sessions, new Date());
+  // Open-now bonus week (test prep): offered next to the main quest until all its quests are done.
+  const prepWeek = WEEKS.find((w) => w.openNow && w.id !== next?.week.id && w.lessons.some((l) => !isLessonComplete(progress, l.id)));
+  const prepNext = prepWeek?.lessons.find((l) => !isLessonComplete(progress, l.id));
+  const prepDone = prepWeek ? prepWeek.lessons.filter((l) => isLessonComplete(progress, l.id)).length : 0;
   const friends = WEEKS.filter((w) => isLessonComplete(progress, w.lessons[w.lessons.length - 1].id)).map((w) => w.friend);
   const flowers = Math.min(FLOWER_SPOTS.length, progress.sessions.length);
   const bridgeBuilt = zoneLevel('harbor', progress.zonePoints.harbor) >= 2;
@@ -82,6 +86,18 @@ export function IslandMap() {
           <span className="today-emoji" aria-hidden="true">🏆</span>
           <span className="today-text"><b>{t('כל המשימות הושלמו!', 'All quests complete!')}</b></span>
         </div>
+      )}
+
+      {prepWeek && prepNext && (
+        <button type="button" className="today-card prep" onClick={() => navigate(`quest/${prepNext.id}`)}>
+          <span className="today-emoji" aria-hidden="true">{prepWeek.emoji}</span>
+          <span className="today-text">
+            <small>{t('בונוס · פתוח עכשיו', 'Bonus · open now')} · {t(`שבוע ${prepWeek.number}`, `Week ${prepWeek.number}`)}</small>
+            <b>{lang === 'he' ? prepWeek.themeHe : <En>{prepWeek.theme}</En>}</b>
+            <span>▶ <En>{prepNext.title}</En> · {prepDone}/{prepWeek.lessons.length}</span>
+          </span>
+          <span className="today-go" aria-hidden="true">▶</span>
+        </button>
       )}
 
       <section className="map" aria-label={t('מפת אי המסע', 'Quest Island map')}>

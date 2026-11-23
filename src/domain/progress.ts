@@ -63,9 +63,11 @@ export function nextLessonId(progress: Progress, grade: Grade): string | null {
   return lessonOrder(grade).find((id) => !isLessonComplete(progress, id)) ?? null;
 }
 
-/** A quest opens once every quest before it in its own grade's plan is complete. */
+/** A quest opens once every quest before it in its own grade's plan is complete. Quests of an open-now bonus week are always open. */
 export function isLessonUnlocked(progress: Progress, lessonId: string): boolean {
-  const grade = findLesson(lessonId)?.week.grade ?? 6;
+  const found = findLesson(lessonId);
+  if (found?.week.openNow) return true;
+  const grade = found?.week.grade ?? 6;
   const order = lessonOrder(grade);
   const next = nextLessonId(progress, grade);
   if (next === null) return order.includes(lessonId);

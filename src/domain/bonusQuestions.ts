@@ -84,6 +84,10 @@ function reached(progress: Progress, grade: Grade) {
   const next = nextLessonId(progress, grade);
   const upTo = next === null ? order.length - 1 : order.indexOf(next);
   const lessonIds = order.slice(0, upTo + 1);
+  // Open-now bonus weeks sit outside the main path: count their quests once they are done.
+  for (const w of weeksFor(grade).filter((x) => x.openNow)) {
+    for (const l of w.lessons) if (!lessonIds.includes(l.id) && isLessonComplete(progress, l.id)) lessonIds.push(l.id);
+  }
   const completed = lessonIds.filter((id) => isLessonComplete(progress, id));
   const weeks: WeeklyPlan[] = [];
   for (const id of lessonIds) {

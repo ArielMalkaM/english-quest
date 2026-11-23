@@ -10,14 +10,18 @@ import { week3 } from './week3';
 import { week4 } from './week4';
 import { week5 } from './week5';
 import { week6 } from './week6';
+import { week7 } from './week7';
 
-/** Each grade has its own six-week plan. Grade 6 keeps the original lesson ids (w1d1…), so saved progress stays valid. */
+/**
+ * Each grade has its own six-week plan. Grade 6 keeps the original lesson ids (w1d1…), so saved progress stays valid.
+ * Grade 6 also has a bonus test-prep week (week 7) whose quests are all open from the start.
+ */
 export const CURRICULA: Record<Grade, WeeklyPlan[]> = {
   2: grade2,
   3: grade3,
   4: grade4,
   5: grade5,
-  6: [week1, week2, week3, week4, week5, week6].map((w) => ({ ...w, grade: 6 as const })),
+  6: [week1, week2, week3, week4, week5, week6, week7].map((w) => ({ ...w, grade: 6 as const })),
 };
 
 export function weeksFor(grade: Grade): WeeklyPlan[] {
@@ -151,4 +155,10 @@ export const GRAMMAR: Record<string, { en: string; he: string }> = {
   'prep-place': { en: 'Prepositions of place + there is/are', he: 'מילות מקום + there is/are' },
   'like-ing': { en: 'like / love / hate + -ing', he: 'like / love / hate + ing' },
   'some-any-basic': { en: 'some / any', he: 'some / any' },
+  // Grade 6 test-prep week
+  'question-words': { en: 'Question words', he: 'מילות שאלה' },
+  capitals: { en: 'Capital letters', he: 'אותיות גדולות' },
+  'to-be': { en: 'To be: am, is, are', he: 'הפועל to be: am, is, are' },
+  'to-be-negative': { en: 'To be: negatives and short forms', he: 'to be: שלילה וקיצורים' },
+  'test-mix': { en: 'Test review mix', he: 'חזרה מעורבת למבחן' },
 };

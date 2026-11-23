@@ -181,6 +181,8 @@ export interface WeeklyPlan {
   /** Grade this week belongs to (set by the curriculum index). */
   grade?: Grade;
   number: number;
+  /** Bonus week (e.g. test prep): every quest is open from the start, outside the main path. */
+  openNow?: boolean;
   theme: string;
   themeHe: string;
   emoji: string;

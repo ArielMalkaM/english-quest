@@ -254,15 +254,28 @@ describe('parent authorization', () => {
 });
 
 describe('curriculum content', () => {
-  it('has six weeks of five quests, each with twelve theme words', () => {
-    expect(WEEKS).toHaveLength(6);
+  it('has six weeks of five quests, each with twelve theme words, plus an open-now test-prep week', () => {
+    const core = WEEKS.filter((w) => !w.openNow);
+    expect(core).toHaveLength(6);
+    for (const week of core) expect(week.words).toHaveLength(12);
     for (const week of WEEKS) {
       expect(week.lessons).toHaveLength(5);
-      expect(week.words).toHaveLength(12);
+      expect(week.words.length).toBeGreaterThanOrEqual(12);
       expect(week.lessons[4].boss).toBe(true);
       expect(week.lessons.slice(0, 4).every((l) => !l.boss)).toBe(true);
     }
-    expect(new Set(LESSON_ORDER).size).toBe(30);
+    expect(WEEKS.filter((w) => w.openNow).map((w) => w.id)).toEqual(['w7']);
+    expect(new Set(LESSON_ORDER).size).toBe(35);
+    expect(new Set(WEEKS.flatMap((w) => w.words.map((x) => x.id))).size).toBe(WEEKS.reduce((n, w) => n + w.words.length, 0));
+  });
+
+  it('opens every test-prep quest straight away without unlocking the main path', () => {
+    const s = child();
+    for (const id of ['w7d1', 'w7d3', 'w7d5']) expect(isLessonUnlocked(s.progress, id)).toBe(true);
+    const after = playLesson(s, 'w7d3', NOW);
+    expect(isLessonComplete(after.progress, 'w7d3')).toBe(true);
+    expect(nextLessonId(after.progress, 6)).toBe('w1d1');
+    expect(isLessonUnlocked(after.progress, 'w1d2')).toBe(false);
   });
 
   it('has valid answers, evidence lines and exactly one right reply per dialogue turn', () => {
@@ -292,7 +305,7 @@ describe('curriculum content', () => {
   });
 
   it('ends every week with a ~30-word paragraph and reuses the week theme words in its activities', () => {
-    for (const week of WEEKS) {
+    for (const week of WEEKS.filter((w) => !w.openNow)) {
       const boss = week.lessons[4].create;
       expect(boss.type === 'write' && boss.minWords).toBe(25);
       const text = JSON.stringify(week.lessons).toLowerCase();

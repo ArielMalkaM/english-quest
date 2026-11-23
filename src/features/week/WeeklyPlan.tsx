@@ -30,6 +30,7 @@ export function WeeklyPlan({ forParent = false }: { forParent?: boolean }) {
         {WEEKS.map((w) => (
           <button key={w.id} type="button" role="tab" aria-selected={w.number === number} className={`week-tab ${w.number === number ? 'on' : ''} ${w.number === currentWeek ? 'current' : ''}`} onClick={() => setNumber(w.number)}>
             <span aria-hidden="true">{w.emoji}</span> {w.number}
+            {w.openNow && <span className="tab-tag">{t('בונוס', 'Bonus')}</span>}
           </button>
         ))}
       </div>
@@ -42,6 +43,7 @@ export function WeeklyPlan({ forParent = false }: { forParent?: boolean }) {
           {lang === 'he' && <p>{week.themeHe}</p>}
           <p className="week-focus">🧪 {lang === 'he' ? week.grammarFocusHe : week.grammarFocus}</p>
           <p className="week-focus">👑 {lang === 'he' ? week.finalMissionHe : week.finalMission}</p>
+          {week.openNow && <p className="week-focus">🔓 {t('שבוע בונוס: כל המשימות פתוחות כבר עכשיו, בכל סדר שתרצו.', 'Bonus week: every quest is open right now, in any order you like.')}</p>}
         </div>
       </section>
 

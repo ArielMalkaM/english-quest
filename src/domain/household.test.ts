@@ -136,15 +136,16 @@ describe('several children on one device', () => {
 });
 
 describe('a separate plan for every grade', () => {
-  it('has six weeks of five quests with twelve words for grades 2–6, and unique ids across grades', () => {
+  it('has six weeks of five quests with twelve words for grades 2–6 (plus grade 6 test prep), and unique ids across grades', () => {
     const all: string[] = [];
     for (const g of GRADES) {
       const weeks = weeksFor(g);
-      expect(weeks).toHaveLength(6);
+      expect(weeks.filter((w) => !w.openNow)).toHaveLength(6);
+      expect(weeks.filter((w) => w.openNow)).toHaveLength(g === 6 ? 1 : 0);
       for (const w of weeks) {
         expect(w.grade).toBe(g);
         expect(w.lessons).toHaveLength(5);
-        expect(w.words).toHaveLength(12);
+        if (!w.openNow) expect(w.words).toHaveLength(12);
         expect(w.lessons[4].boss).toBe(true);
         for (const word of w.words) expect(word.example.toLowerCase()).toContain(word.en.toLowerCase());
       }
@@ -285,7 +286,7 @@ describe('AI report', () => {
     expect(report).toContain('Band I');
     expect(report).toContain('Please answer in Hebrew');
     expect(report).toContain('## Writing samples');
-    expect(report).toContain('Quests completed: 6 of 30');
+    expect(report).toContain('Quests completed: 6 of 35');
     expect(report).not.toContain('Noam');
     expect(buildAiReport(noam, { includeName: true, answerLang: 'en', now: NOW })).toContain('Noam');
   });
