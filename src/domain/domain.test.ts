@@ -2,12 +2,26 @@ import { describe, expect, it } from 'vitest';
 import { LESSON_ORDER, WEEKS } from '../data/curriculum';
 import { createDemoState, createInitialState, startProfile } from '../data/seed';
 import { buildWarmup, stepActivities } from './dailyPlan';
+import { addDays } from './dates';
 import { NotAuthorizedError, PARENT_SESSION_MS, hashPin, isParentAuthorized, isValidPin, unlockParent, verifyPin } from './parentAuth';
 import { isLessonComplete, isLessonUnlocked, nextLessonId, weeklySummary } from './progress';
 import { REVIEW_INTERVALS, dueReviews, nextFormat, scheduleReview } from './review';
 import type { AttemptInput } from './session';
 import { completeStep } from './session';
-import { TICKETS, TicketError, balance, decideRequest, fulfillRequest, giftTickets, grantTickets, requestReward, saveReward } from './tickets';
+import {
+  DAILY_TICKET_CAP,
+  TICKETS,
+  TicketError,
+  balance,
+  decideRequest,
+  earnedToday,
+  fulfillRequest,
+  giftTickets,
+  grantTickets,
+  questTickets,
+  requestReward,
+  saveReward,
+} from './tickets';
 import { CORE_STEPS } from './types';
 import type { AppState, ItemResult, ReviewItem, StepId } from './types';
 
@@ -88,6 +102,33 @@ describe('ticket balance and reward redemption', () => {
     const third = grantTickets(second.state, 3, 'step', 'x', NOW);
     expect([first.granted, second.granted, third.granted]).toEqual([3, 1, 0]);
   });
+
+  it('caps learning tickets per day, scaled by the multiplier, but not parent gifts', () => {
+    const base = child();
+    let s = base;
+    for (let i = 0; i < 10; i++) s = grantTickets(s, 3, 'step', 'x', NOW).state;
+    expect(earnedToday(s.tickets, NOW)).toBe(DAILY_TICKET_CAP);
+    expect(grantTickets(s, 3, 'session', 'x', NOW).granted).toBe(0);
+    expect(grantTickets(s, 3, 'step', 'x', addDays(NOW, 1)).granted).toBe(3);
+    expect(balance(giftTickets(s, 10, 'gift', parent, NOW).tickets)).toBe(balance(s.tickets) + 10);
+
+    let doubled: AppState = { ...base, settings: { ...base.settings, bonusMultiplier: 2 } };
+    for (let i = 0; i < 20; i++) doubled = grantTickets(doubled, 3, 'step', 'x', NOW).state;
+    expect(earnedToday(doubled.tickets, NOW)).toBe(DAILY_TICKET_CAP * 2);
+  });
+
+  it('gives every grade the same daily maximum, with smaller quests worth less', () => {
+    const quest = (g: 2 | 4 | 6) => {
+      const r = questTickets(g);
+      return 4 * r.step + r.bonus + r.session;
+    };
+    expect(quest(2)).toBeLessThan(quest(6));
+    expect(quest(4)).toBe(quest(2));
+    // Two full quests reach the cap in grade 6; about three (with a try-again) in grades 2–4.
+    expect(2 * quest(6)).toBeGreaterThanOrEqual(DAILY_TICKET_CAP);
+    expect(2 * quest(4)).toBeLessThan(DAILY_TICKET_CAP);
+    expect(3 * quest(4) + TICKETS.tryAgain).toBeGreaterThanOrEqual(DAILY_TICKET_CAP);
+  });
 });
 
 describe('session completion', () => {
@@ -139,9 +180,11 @@ describe('session completion', () => {
 
   it('gives the boss bonus and the week badge on the Boss Mission', () => {
     let s = child();
-    for (const id of LESSON_ORDER.slice(0, 4)) s = playLesson(s, id, NOW);
-    s = playLesson(s, 'w1d5', NOW, ['warmup', 'learn', 'mission']);
-    const boss = completeStep(s, 'w1d5', 'create', attempt(), NOW);
+    // One quest a day, so the daily ticket cap is never in the way.
+    LESSON_ORDER.slice(0, 4).forEach((id, i) => (s = playLesson(s, id, addDays(NOW, i))));
+    const day5 = addDays(NOW, 4);
+    s = playLesson(s, 'w1d5', day5, ['warmup', 'learn', 'mission']);
+    const boss = completeStep(s, 'w1d5', 'create', attempt(), day5);
     expect(boss.breakdown.map((b) => b.reason)).toEqual(expect.arrayContaining(['step', 'session', 'boss']));
     expect(boss.newBadges).toContain('week-1');
   });

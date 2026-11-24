@@ -4,6 +4,7 @@ import { findLesson } from '../../data/curriculum';
 import { stepActivities } from '../../domain/dailyPlan';
 import { findBadge, gradeOf, isLessonUnlocked } from '../../domain/progress';
 import type { AttemptInput, StepOutcome } from '../../domain/session';
+import { dailyCap, earnedToday } from '../../domain/tickets';
 import { CORE_STEPS } from '../../domain/types';
 import type { Activity, ItemResult, StepId } from '../../domain/types';
 import { navigate } from '../../lib/router';
@@ -152,7 +153,13 @@ export function ActivityRunner({ lessonId, step }: { lessonId: string; step: Ste
                     </li>
                   ))}
                 </ul>
-                {outcome.earned === 0 && <p className="soft-note">{t('הגעתם למכסת הכרטיסים השבועית — הלמידה ממשיכה להיחשב!', 'You reached this week’s ticket limit — your learning still counts!')}</p>}
+                {outcome.earned === 0 && (
+                  <p className="soft-note">
+                    {earnedToday(state.tickets, new Date()) >= dailyCap(state)
+                      ? t('הגעתם למכסת הכרטיסים היומית — מחר אפשר להרוויח שוב. הלמידה ממשיכה להיחשב!', 'You reached today’s ticket limit — more tomorrow. Your learning still counts!')
+                      : t('הגעתם למכסת הכרטיסים השבועית — הלמידה ממשיכה להיחשב!', 'You reached this week’s ticket limit — your learning still counts!')}
+                  </p>
+                )}
               </>
             )}
             {outcome.newBadges.map((id) => {

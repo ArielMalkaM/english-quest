@@ -3,7 +3,7 @@ import { localDate } from './dates';
 import { newId } from './ids';
 import { ZONE_BY_SKILL, computeStreak, evaluateBadges, isLessonComplete, isLessonUnlocked } from './progress';
 import { scheduleReview } from './review';
-import { STREAK_MILESTONES, TICKETS, grantTickets } from './tickets';
+import { STREAK_MILESTONES, TICKETS, grantTickets, questTickets } from './tickets';
 import { CORE_STEPS } from './types';
 import type {
   ActivityAttempt,
@@ -93,6 +93,7 @@ export function completeStep(
   if (!found) throw new Error(`Unknown lesson ${lessonId}`);
   if (!isLessonUnlocked(state.progress, lessonId)) throw new Error('This quest is not open yet');
   const { lesson } = found;
+  const reward = questTickets(found.week.grade ?? 6);
 
   const doneBefore = state.progress.steps[lessonId] ?? [];
   const practice = doneBefore.includes(step);
@@ -128,7 +129,7 @@ export function completeStep(
     if (r.granted > 0) breakdown.push({ reason, amount: r.granted });
   };
 
-  grant(step === 'bonus' ? TICKETS.bonus : TICKETS.step, step === 'bonus' ? 'bonus' : 'step', `${lesson.title} · ${step}`);
+  grant(step === 'bonus' ? reward.bonus : reward.step, step === 'bonus' ? 'bonus' : 'step', `${lesson.title} · ${step}`);
 
   // Perseverance: tried again after a mistake and solved it (once per day).
   const today = localDate(now);
@@ -152,8 +153,8 @@ export function completeStep(
         sessions: [...next.progress.sessions, { lessonId, completedAt: at, date: today, seconds }],
       },
     };
-    grant(TICKETS.session, 'session', `${lesson.title} complete`);
-    if (lesson.boss) grant(TICKETS.boss, 'boss', `Boss Mission: ${lesson.title}`);
+    grant(reward.session, 'session', `${lesson.title} complete`);
+    if (lesson.boss) grant(reward.boss, 'boss', `Boss Mission: ${lesson.title}`);
 
     const streak = computeStreak(next.progress.sessions, now);
     if (STREAK_MILESTONES.includes(streak) && !next.progress.streakMilestones.includes(streak)) {

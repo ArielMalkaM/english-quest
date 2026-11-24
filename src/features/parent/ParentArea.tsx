@@ -9,7 +9,7 @@ import { buildAiReport } from '../../domain/aiReport';
 import { findChild } from '../../domain/household';
 import { isValidPin } from '../../domain/parentAuth';
 import { gradeOf, isLessonComplete, weeklySummary } from '../../domain/progress';
-import { balance, earnedThisWeek } from '../../domain/tickets';
+import { DAILY_TICKET_CAP, balance, dailyCap, earnedThisWeek, earnedToday } from '../../domain/tickets';
 import type { ChildRecord, Grade, Lang, LearnerProfile, Reward } from '../../domain/types';
 import { navigate } from '../../lib/router';
 import { accountsEnabled } from '../../lib/supabase';
@@ -332,6 +332,7 @@ function Tickets() {
     <>
       <div className="stat-row">
         <div className="stat"><b>{balance(state.tickets)}</b><span>{t('יתרה', 'balance')}</span></div>
+        <div className="stat"><b>{earnedToday(state.tickets, now)} / {dailyCap(state)}</b><span>{t('הורווחו היום', 'earned today')}</span></div>
         <div className="stat"><b>{earnedThisWeek(state.tickets, now)}{cap !== null ? ` / ${cap}` : ''}</b><span>{t('הורווחו השבוע', 'earned this week')}</span></div>
       </div>
       <section className="card">
@@ -355,6 +356,7 @@ function Tickets() {
           </select>
         </div>
         <p className="soft-note">{t('כרטיסים ניתנים על השלמה והתמדה — אף פעם לא על מהירות, ולעולם לא נלקחים על טעויות.', 'Tickets reward completion and perseverance — never speed — and are never taken away for mistakes.')}</p>
+        <p className="soft-note">{t(`עד ${DAILY_TICKET_CAP} כרטיסים ביום בכל כיתה (כפול המכפיל). בכיתות ב׳–ד׳ המסעות קצרים יותר ולכן כל מסע שווה פחות.`, `Up to ${DAILY_TICKET_CAP} tickets a day in every grade (times the multiplier). Grades 2–4 have shorter quests, so each quest is worth less.`)}</p>
       </section>
       <section className="card">
         <h2>🎁 {t('מתנת כרטיסים', 'Gift tickets')}</h2>

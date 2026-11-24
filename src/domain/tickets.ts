@@ -1,8 +1,9 @@
-import { isInWeekOf } from './dates';
+import { isInWeekOf, localDate } from './dates';
 import { newId } from './ids';
 import { assertParent } from './parentAuth';
 import type {
   AppState,
+  Grade,
   ParentSession,
   Reward,
   RewardRequest,
@@ -20,7 +21,28 @@ export const TICKETS = {
   welcome: 3,
 } as const;
 
+/**
+ * Most tickets a child can earn from learning in one day (before the parent's
+ * multiplier). The same for every grade, so a younger child with quicker quests
+ * cannot out-earn an older one by playing many quests in a row.
+ */
+export const DAILY_TICKET_CAP = 25;
+
+type QuestReward = 'step' | 'bonus' | 'session' | 'boss';
+
+/**
+ * Quest rewards by grade. Grades 2–4 have shorter, easier quests, so each one is
+ * worth less: about three quests reach the daily cap, against two in grades 5–6.
+ */
+export function questTickets(grade: Grade): Record<QuestReward, number> {
+  if (grade <= 4) return { step: 1, bonus: 2, session: 2, boss: 4 };
+  return { step: TICKETS.step, bonus: TICKETS.bonus, session: TICKETS.session, boss: TICKETS.boss };
+}
+
 export const STREAK_MILESTONES = [3, 5, 7, 14, 21, 30];
+
+/** Earned by learning (counts toward the daily cap); gifts, refunds and the welcome gift do not. */
+const LEARNING_REASONS: ReadonlySet<TicketReason> = new Set(['step', 'session', 'try-again', 'bonus', 'boss', 'streak']);
 
 export class TicketError extends Error {
   constructor(
@@ -43,9 +65,22 @@ export function earnedThisWeek(txs: TicketTransaction[], now: Date): number {
     .reduce((sum, t) => sum + t.amount, 0);
 }
 
+/** Tickets earned from learning on the local calendar day of `now`. */
+export function earnedToday(txs: TicketTransaction[], now: Date): number {
+  const today = localDate(now);
+  return txs
+    .filter((t) => t.amount > 0 && LEARNING_REASONS.has(t.reason) && localDate(new Date(t.at)) === today)
+    .reduce((sum, t) => sum + t.amount, 0);
+}
+
+/** The daily cap after the parent's multiplier (a ×2 week doubles the cap too). */
+export function dailyCap(state: AppState): number {
+  return Math.round(DAILY_TICKET_CAP * (state.settings.bonusMultiplier || 1));
+}
+
 /**
- * Grants tickets for learning. Applies the parent's bonus multiplier and the
- * optional weekly cap. Never grants a negative amount: mistakes cost nothing.
+ * Grants tickets for learning. Applies the parent's bonus multiplier, the daily
+ * cap and the optional weekly cap. Never grants a negative amount: mistakes cost nothing.
  */
 export function grantTickets(
   state: AppState,
@@ -57,6 +92,9 @@ export function grantTickets(
 ): { state: AppState; granted: number } {
   if (base <= 0) return { state, granted: 0 };
   let amount = Math.round(base * (state.settings.bonusMultiplier || 1));
+  if (LEARNING_REASONS.has(reason)) {
+    amount = Math.min(amount, Math.max(0, dailyCap(state) - earnedToday(state.tickets, now)));
+  }
   const cap = state.settings.weeklyTicketCap;
   if (cap !== null) {
     const room = Math.max(0, cap - earnedThisWeek(state.tickets, now));
