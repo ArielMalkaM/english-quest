@@ -7,6 +7,7 @@ import { BonusGame } from './features/bonus/BonusGame';
 import { BonusBanner, BonusUnlockedModal } from './features/bonus/BonusPrompt';
 import { BadgeCollection, WordCollection } from './features/collection/Collections';
 import { IslandMap } from './features/island/IslandMap';
+import { LittleExplorers } from './features/little/LittleExplorers';
 import { Onboarding } from './features/onboarding/Onboarding';
 import { ParentArea } from './features/parent/ParentArea';
 import { ChildPicker } from './features/players/ChildPicker';
@@ -35,6 +36,8 @@ export function App() {
 
   const [page, a, b] = route;
   if (household.children.length === 0) return <Onboarding />;
+  // Little Explorers (age 4) needs no profile: it opens from the child picker or the island.
+  if (page === 'little') return <LittleExplorers />;
   if (!activeChildId || !state.profile) {
     // Nobody is signed in: only the child picker and the (PIN-protected) parent area are reachable.
     if (page === 'parent') {

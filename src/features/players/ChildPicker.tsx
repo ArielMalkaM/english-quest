@@ -5,6 +5,7 @@ import { Arrow, Avatar, Button } from '../../components/ui';
 import { lessonOrder } from '../../data/curriculum';
 import { isLessonComplete } from '../../domain/progress';
 import { navigate } from '../../lib/router';
+import { LittleEntry } from '../little/LittleEntry';
 import { useStore } from '../../state/store';
 
 /** "Who is playing?" — each child signs in with their own optional 4-digit code. */
@@ -83,6 +84,7 @@ export function ChildPicker() {
                 );
               })}
             </ul>
+            <LittleEntry />
             <div className="pick-row center">
               <button type="button" className={`pick wide ${lang === 'he' ? 'on' : ''}`} aria-pressed={lang === 'he'} onClick={() => actions.updateChildSettings({ uiLang: 'he' })}>עברית</button>
               <button type="button" className={`pick wide ${lang === 'en' ? 'on' : ''}`} aria-pressed={lang === 'en'} onClick={() => actions.updateChildSettings({ uiLang: 'en' })}>English</button>

@@ -216,6 +216,17 @@ div.en, p.en { text-align: left; }
 .today-card.boss { background: linear-gradient(120deg, var(--navy), #3a2a7a 60%, var(--coral-d)); box-shadow: 0 6px 0 #0b1326; }
 .today-card.done-all { background: var(--aqua); color: var(--navy); box-shadow: 0 6px 0 var(--aqua-d); }
 .today-card.prep { background: linear-gradient(120deg, #0f8f7a, var(--aqua-d) 60%, #2f7de1); box-shadow: 0 6px 0 #0b5e51, 0 16px 30px rgba(15, 143, 122, 0.25); margin-top: 12px; }
+
+/* Way into Little Explorers (age 4), on the "Who is playing?" screen and the island. */
+.little-entry {
+  width: 100%; border: 0; border-radius: 24px; padding: 14px 18px; display: flex; align-items: center; gap: 14px; text-align: start;
+  background: linear-gradient(120deg, #ffd166, #ff9fb2 60%, #c9b6ff); color: var(--navy); box-shadow: 0 6px 0 rgba(20, 33, 61, 0.15);
+}
+.little-entry b { display: block; font-size: 1.15rem; }
+.little-entry small { color: var(--navy-2); }
+.little-entry-emoji { font-size: 2.6rem; }
+.little-entry:hover { filter: brightness(1.04); }
+.friends-row + .little-entry, .little-entry.on-island { margin-top: 18px; }
 .week-tab .tab-tag { font-size: 0.7rem; font-weight: 800; margin-inline-start: 4px; padding: 1px 6px; border-radius: 999px; background: var(--yellow); color: var(--navy); }
 .today-emoji { font-size: 2.6rem; background: rgba(255, 255, 255, 0.2); border-radius: 18px; width: 64px; height: 64px; display: grid; place-items: center; flex: none; }
 .today-text { display: grid; flex: 1; gap: 2px; }

@@ -7,6 +7,7 @@ import { CORE_STEPS } from '../../domain/types';
 import type { ZoneId } from '../../domain/types';
 import { navigate } from '../../lib/router';
 import { useStore } from '../../state/store';
+import { LittleEntry } from '../little/LittleEntry';
 import { ZONES } from '../quest/meta';
 
 const POSITIONS: Record<ZoneId, { x: number; y: number }> = {
@@ -181,6 +182,8 @@ export function IslandMap() {
           })}
         </div>
       </section>
+
+      <LittleEntry className="on-island" />
     </div>
   );
 }
