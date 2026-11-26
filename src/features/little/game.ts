@@ -56,12 +56,36 @@ export function buildRounds(topic: LittleTopic, seed: number, count = ROUNDS): L
   });
 }
 
+// ── Memory (match the pairs) ──
+
+export interface MemoryCard {
+  /** Unique per card; the two cards of a pair share `word`. */
+  key: string;
+  word: LittleWord;
+}
+
+/** Three pairs (six cards) for the first games of a topic, then four pairs. */
+export function memoryPairs(gamesPlayed: number): number {
+  return gamesPlayed < 2 ? 3 : 4;
+}
+
+/** Builds a shuffled memory board: `pairs` different words, each on two cards. */
+export function buildMemory(topic: LittleTopic, seed: number, pairs: number): MemoryCard[] {
+  const rnd = random(seed);
+  const words = shuffle(topic.words, rnd).slice(0, Math.min(pairs, topic.words.length));
+  const cards = words.flatMap((word) => [
+    { key: `${word.id}-a`, word },
+    { key: `${word.id}-b`, word },
+  ]);
+  return shuffle(cards, rnd);
+}
+
 // ── Stars (kept on this device) ──
 
 export interface TopicProgress {
   /** Heard every picture card at least once. */
   looked: boolean;
-  /** "Find it!" games finished. */
+  /** Games finished ("Find it!" and Memory). */
   games: number;
 }
 

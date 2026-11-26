@@ -87,6 +87,46 @@
 .little-option.right { background: var(--aqua-soft); border-color: var(--aqua) !important; animation: little-happy 0.7s ease; }
 .little-option.oops { animation: nudge 0.4s ease; opacity: 0.45; }
 
+/* Memory: cards flip over to show their picture. */
+/* Square cards in two rows, sized so the whole board fits on screen. */
+.little-mem {
+  display: grid; gap: 14px; grid-template-columns: repeat(3, 1fr); width: 100%; margin: 0 auto;
+  max-width: min(600px, calc((100vh - 230px) * 1.5));
+}
+.little-mem.n8 { grid-template-columns: repeat(4, 1fr); max-width: min(760px, calc((100vh - 230px) * 2)); }
+.little-mem-card {
+  width: 100%; aspect-ratio: 1; padding: 0; border: 0; background: none; perspective: 900px;
+  transition: transform 0.15s ease;
+}
+.little-mem-card:not(.up):hover { transform: translateY(-3px) rotate(-1deg); }
+.little-mem-card:not(.up):active { transform: translateY(2px); }
+.little-mem-inner {
+  position: relative; display: block; width: 100%; height: 100%;
+  transform-style: preserve-3d; transition: transform 0.45s ease;
+}
+.little-mem-card.up .little-mem-inner { transform: rotateY(180deg); }
+.little-mem-back, .little-mem-face {
+  position: absolute; inset: 0; border-radius: 24px; backface-visibility: hidden; -webkit-backface-visibility: hidden;
+  display: grid; place-content: center; justify-items: center; box-shadow: 0 6px 0 rgba(20, 33, 61, 0.14);
+}
+.little-mem-back {
+  border: 5px solid #fff;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.35) 18%, transparent 20%);
+  background-size: 22px 22px;
+}
+.little-mem-back span { font-size: clamp(2rem, 8vw, 3rem); opacity: 0.8; animation: bob 2.4s ease-in-out infinite; }
+.little-mem li:nth-child(2n) .little-mem-back span { animation-delay: 0.5s; }
+.little-mem li:nth-child(3n) .little-mem-back span { animation-delay: 1s; }
+.little-mem-face { background: #fff; border: 5px solid; transform: rotateY(180deg); gap: 2px; }
+.little-mem-emoji { font-size: clamp(3rem, 13vw, 5rem); line-height: 1.1; letter-spacing: -0.1em; }
+.little-mem.n8 .little-mem-emoji { font-size: clamp(2.4rem, 10vw, 4.2rem); }
+.little-mem-emoji.many { display: flex; flex-wrap: wrap; justify-content: center; letter-spacing: 0; max-width: 90%; font-size: clamp(1.3rem, 4.5vw, 2.2rem); }
+.little-mem-emoji.many i { font-style: normal; }
+.little-mem-word { font-size: clamp(1rem, 3.6vw, 1.4rem); font-weight: 800; color: var(--navy); }
+/* The face keeps its rotateY, so the happy wiggle goes on the card itself. */
+.little-mem-card.matched { cursor: default; animation: little-happy 0.7s ease; }
+.little-mem-card.matched .little-mem-face { background: var(--aqua-soft); border-color: var(--aqua) !important; }
+
 /* Done */
 .little-done { justify-items: center; text-align: center; padding-top: 20px; }
 .little-done h2 { font-size: 2rem; }
@@ -108,6 +148,15 @@
   100% { transform: scale(1); }
 }
 @keyframes little-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+
+/* Phones held upright: two big columns instead of a row of tiny cards. */
+@media (max-width: 600px) and (orientation: portrait) {
+  .little-mem, .little-mem.n8 { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  /* ~250px of header above the board, plus the row gaps. */
+  .little-mem { max-width: min(100%, calc((100vh - 280px) * 2 / 3)); }
+  .little-mem.n8 { max-width: min(100%, calc((100vh - 290px) / 2)); }
+  .little-mem.n8 .little-mem-emoji, .little-mem-emoji { font-size: clamp(3rem, 16vw, 4.5rem); }
+}
 
 @media (max-width: 520px) {
   .little-options.n3 { grid-template-columns: repeat(2, 1fr); }

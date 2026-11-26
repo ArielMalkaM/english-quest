@@ -3,17 +3,31 @@ import { Confetti, En } from '../../components/ui';
 import { navigate } from '../../lib/router';
 import { canSpeak, chime, speak, stopSpeaking } from '../../lib/speech';
 import { useStore } from '../../state/store';
-import { MAX_STARS, ROUNDS, buildRounds, loadProgress, saveProgress, starsOf, withGame, withLooked } from './game';
-import type { LittleProgress } from './game';
+import {
+  MAX_STARS,
+  ROUNDS,
+  buildMemory,
+  buildRounds,
+  loadProgress,
+  memoryPairs,
+  saveProgress,
+  starsOf,
+  withGame,
+  withLooked,
+} from './game';
+import type { LittleProgress, MemoryCard } from './game';
 import { LITTLE_TOPICS, askFor } from './topics';
 import type { LittleTopic, LittleWord } from './topics';
 import './little.css';
 
+/** "Find it!" (hear a word, tap its picture) or Memory (match the pairs). */
+type Mode = 'find' | 'memory';
+
 type View =
   | { kind: 'topics' }
   | { kind: 'look'; topic: LittleTopic }
-  | { kind: 'game'; topic: LittleTopic; seed: number }
-  | { kind: 'done'; topic: LittleTopic };
+  | { kind: 'game'; topic: LittleTopic; seed: number; mode: Mode }
+  | { kind: 'done'; topic: LittleTopic; mode: Mode };
 
 /** Waits a moment before talking, so the new screen is on show first. */
 function useLater() {
@@ -55,6 +69,11 @@ export function LittleExplorers() {
   const update = (next: LittleProgress) => {
     setProgress(next);
     saveProgress(next);
+  };
+
+  const finish = (topic: LittleTopic, mode: Mode) => {
+    update(withGame(progress, topic.id));
+    setView({ kind: 'done', topic, mode });
   };
 
   const home = () => {
@@ -103,25 +122,26 @@ export function LittleExplorers() {
           key={view.topic.id}
           topic={view.topic}
           onAllSeen={() => update(withLooked(progress, view.topic.id))}
-          onPlay={() => setView({ kind: 'game', topic: view.topic, seed: Date.now() })}
+          onPlay={(mode) => setView({ kind: 'game', topic: view.topic, seed: Date.now(), mode })}
         />
       )}
-      {view.kind === 'game' && (
-        <FindIt
+      {view.kind === 'game' && view.mode === 'find' && (
+        <FindIt key={view.seed} topic={view.topic} seed={view.seed} onDone={() => finish(view.topic, 'find')} />
+      )}
+      {view.kind === 'game' && view.mode === 'memory' && (
+        <Memory
           key={view.seed}
           topic={view.topic}
           seed={view.seed}
-          onDone={() => {
-            update(withGame(progress, view.topic.id));
-            setView({ kind: 'done', topic: view.topic });
-          }}
+          pairs={memoryPairs(progress[view.topic.id]?.games ?? 0)}
+          onDone={() => finish(view.topic, 'memory')}
         />
       )}
       {view.kind === 'done' && (
         <Done
           topic={view.topic}
           stars={starsOf(progress, view.topic.id)}
-          onAgain={() => setView({ kind: 'game', topic: view.topic, seed: Date.now() })}
+          onAgain={() => setView({ kind: 'game', topic: view.topic, seed: Date.now(), mode: view.mode })}
           onLook={() => setView({ kind: 'look', topic: view.topic })}
           onHome={home}
         />
@@ -136,8 +156,8 @@ function Topics({ progress, onPick }: { progress: LittleProgress; onPick: (topic
     <section className="little-body">
       <p className="little-note">
         {t(
-          'מילים ראשונות באנגלית לגיל 4. בוחרים נושא, מקישים על תמונה ושומעים את המילה, ואז משחקים "מצא את…".',
-          'First English words for age 4. Pick a topic, tap a picture to hear the word, then play “Find it!”.',
+          'מילים ראשונות באנגלית לגיל 4. בוחרים נושא, מקישים על תמונה ושומעים את המילה, ואז משחקים "מצא את…" או משחק זיכרון.',
+          'First English words for age 4. Pick a topic, tap a picture to hear the word, then play “Find it!” or Memory.',
         )}
       </p>
       {!canSpeak() && (
@@ -169,7 +189,7 @@ function Topics({ progress, onPick }: { progress: LittleProgress; onPick: (topic
   );
 }
 
-function Look({ topic, onAllSeen, onPlay }: { topic: LittleTopic; onAllSeen: () => void; onPlay: () => void }) {
+function Look({ topic, onAllSeen, onPlay }: { topic: LittleTopic; onAllSeen: () => void; onPlay: (mode: Mode) => void }) {
   const { t } = useStore();
   const [seen, setSeen] = useState<string[]>([]);
   const [active, setActive] = useState<{ id: string; n: number } | null>(null);
@@ -217,9 +237,14 @@ function Look({ topic, onAllSeen, onPlay }: { topic: LittleTopic; onAllSeen: () 
         })}
       </ul>
       {allSeen && <Confetti />}
-      <button type="button" className={`little-play ${allSeen ? 'ready' : ''}`} onClick={onPlay}>
-        <span aria-hidden="true">🎈</span> {t('משחק: מצא את…', 'Play: Find it!')}
-      </button>
+      <div className="little-done-actions">
+        <button type="button" className={`little-play ${allSeen ? 'ready' : ''}`} onClick={() => onPlay('find')}>
+          <span aria-hidden="true">🎈</span> {t('משחק: מצא את…', 'Play: Find it!')}
+        </button>
+        <button type="button" className={`little-play ${allSeen ? 'ready' : ''}`} onClick={() => onPlay('memory')}>
+          <span aria-hidden="true">🃏</span> {t('משחק זיכרון', 'Play: Memory')}
+        </button>
+      </div>
     </section>
   );
 }
@@ -288,6 +313,93 @@ function FindIt({ topic, seed, onDone }: { topic: LittleTopic; seed: number; onD
               >
                 <Picture word={word} className="little-option-emoji" />
                 {isRight && <En className="little-option-word">{word.en}</En>}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
+/** Memory: turn two cards over to find the matching pictures; every card says its word. */
+function Memory({ topic, seed, pairs, onDone }: { topic: LittleTopic; seed: number; pairs: number; onDone: () => void }) {
+  const { t } = useStore();
+  const cards = useMemo(() => buildMemory(topic, seed, pairs), [topic, seed, pairs]);
+  /** Cards turned over and not yet matched (at most two). */
+  const [open, setOpen] = useState<string[]>([]);
+  /** Word ids already matched. */
+  const [matched, setMatched] = useState<string[]>([]);
+  const later = useLater();
+  const total = cards.length / 2;
+
+  useEffect(() => {
+    const id = window.setTimeout(() => speak('Find the pairs!'), 450);
+    return () => window.clearTimeout(id);
+  }, []);
+
+  const flip = (card: MemoryCard) => {
+    if (open.length >= 2 || open.includes(card.key) || matched.includes(card.word.id)) return;
+    if (open.length === 0) {
+      speak(card.word.en);
+      setOpen([card.key]);
+      return;
+    }
+    const first = cards.find((c) => c.key === open[0]);
+    setOpen([open[0], card.key]);
+    if (first?.word.id === card.word.id) {
+      speak(`${card.word.en}! Yes!`);
+      later(() => {
+        chime('right');
+        const next = [...matched, card.word.id];
+        setMatched(next);
+        setOpen([]);
+        if (next.length === total) later(onDone, 1600);
+      }, 650);
+      return;
+    }
+    // Not a pair: say the word, let the child look, then turn both back. No penalty.
+    speak(card.word.en);
+    later(() => {
+      chime('soft');
+      setOpen([]);
+    }, 1600);
+  };
+
+  return (
+    <section className="little-body">
+      <div className="little-progress" role="img" aria-label={t(`${matched.length} זוגות מתוך ${total}`, `${matched.length} of ${total} pairs`)}>
+        {Array.from({ length: total }, (_, i) => (
+          <span key={i} className={i < matched.length ? 'on' : ''} aria-hidden="true">⭐</span>
+        ))}
+      </div>
+      <button type="button" className="little-ask" onClick={() => speak('Find the pairs!')} aria-label={t('להשמיע שוב: Find the pairs!', 'Say again: Find the pairs!')}>
+        <span className="little-ask-icon" aria-hidden="true">🔊</span>
+        <En>Find the pairs!</En>
+      </button>
+      <ul className={`little-mem n${cards.length}`} aria-live="polite">
+        {cards.map((card, i) => {
+          const isMatched = matched.includes(card.word.id);
+          const isUp = isMatched || open.includes(card.key);
+          return (
+            <li key={card.key}>
+              <button
+                type="button"
+                className={`little-mem-card ${isUp ? 'up' : ''} ${isMatched ? 'matched' : ''}`}
+                onClick={() => flip(card)}
+                aria-label={isUp ? card.word.en : t(`קלף ${i + 1}`, `Card ${i + 1}`)}
+                aria-disabled={isMatched}
+              >
+                <span className="little-mem-inner">
+                  <span className="little-mem-back" style={{ backgroundColor: topic.color }} aria-hidden="true">
+                    {/* Not the topic emoji: in Animals that is the dog, which is also a card. */}
+                    <span>❓</span>
+                  </span>
+                  <span className="little-mem-face" style={{ borderColor: topic.color }} aria-hidden="true">
+                    <Picture word={card.word} className="little-mem-emoji" />
+                    {isMatched && <En className="little-mem-word">{card.word.en}</En>}
+                  </span>
+                </span>
               </button>
             </li>
           );

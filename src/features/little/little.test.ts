@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_STARS, ROUNDS, buildRounds, choicesFor, parseProgress, starsOf, withGame, withLooked } from './game';
+import {
+  MAX_STARS,
+  ROUNDS,
+  buildMemory,
+  buildRounds,
+  choicesFor,
+  memoryPairs,
+  parseProgress,
+  starsOf,
+  withGame,
+  withLooked,
+} from './game';
 import { LITTLE_TOPICS, askFor, findTopic } from './topics';
 
 describe('Little Explorers topics', () => {
@@ -64,6 +75,38 @@ describe('Find it! rounds', () => {
   it('is the same game for the same seed', () => {
     const animals = findTopic('animals')!;
     expect(buildRounds(animals, 7)).toEqual(buildRounds(animals, 7));
+  });
+});
+
+describe('Memory board', () => {
+  it('starts with three pairs, then four', () => {
+    expect(memoryPairs(0)).toBe(3);
+    expect(memoryPairs(1)).toBe(3);
+    expect(memoryPairs(2)).toBe(4);
+    expect(memoryPairs(9)).toBe(4);
+  });
+
+  it('puts each chosen word on exactly two cards with unique keys', () => {
+    for (const topic of LITTLE_TOPICS) {
+      for (const pairs of [3, 4]) {
+        for (const seed of [1, 42, 2026]) {
+          const cards = buildMemory(topic, seed, pairs);
+          expect(cards).toHaveLength(pairs * 2);
+          expect(new Set(cards.map((c) => c.key)).size).toBe(cards.length);
+          const counts = new Map<string, number>();
+          for (const c of cards) counts.set(c.word.id, (counts.get(c.word.id) ?? 0) + 1);
+          expect(counts.size).toBe(pairs);
+          for (const n of counts.values()) expect(n).toBe(2);
+        }
+      }
+    }
+  });
+
+  it('is the same board for the same seed and shuffles the cards', () => {
+    const animals = findTopic('animals')!;
+    expect(buildMemory(animals, 7, 4)).toEqual(buildMemory(animals, 7, 4));
+    const layouts = new Set(Array.from({ length: 20 }, (_, s) => buildMemory(animals, s, 3).map((c) => c.key).join()));
+    expect(layouts.size).toBeGreaterThan(1);
   });
 });
 
