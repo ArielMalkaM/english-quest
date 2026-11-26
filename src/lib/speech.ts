@@ -1,16 +1,63 @@
-// Browser speech helpers. Everything stays on the device; nothing is uploaded by the app.
+// Browser speech helpers. The app itself uploads nothing. Some browsers (Chrome, Edge) voice
+// their best-sounding English voices on their own servers; only the lesson's English words go there.
 
 export function canSpeak(): boolean {
   return typeof window !== 'undefined' && 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window;
 }
 
-function englishVoice(): SpeechSynthesisVoice | undefined {
-  const voices = window.speechSynthesis.getVoices();
-  return (
-    voices.find((v) => v.lang === 'en-GB' && v.localService) ??
-    voices.find((v) => v.lang === 'en-US' && v.localService) ??
-    voices.find((v) => v.lang.startsWith('en'))
-  );
+// Novelty / effect voices (mostly macOS) that are hard for children to understand.
+const NOVELTY = /\b(albert|bad news|bahh|bells|boing|bubbles|cellos|good news|jester|organ|superstar|trinoids|whisper|wobble|zarvox|eddy|flo|grandma|grandpa|reed|rocko|sandy|shelley)\b/i;
+
+// Clear, warm American voices that read slowly and well for children, best first.
+const PREFERRED = [
+  /(jenny|aria|ava|emma|michelle).*(natural|online|neural)/i, // Edge natural voices
+  /(natural|neural)/i,
+  /google us english/i, // Chrome
+  /(ava|samantha|allison|susan|nicky).*(premium|enhanced)/i, // Apple high-quality downloads
+  /samantha|ava|allison|nicky|susan/i, // Apple
+  /zira/i, // Windows built-in
+];
+
+/**
+ * Score an English voice for a young listener: clear American English first, natural-sounding
+ * voices over robotic ones, never a novelty voice. Lower is better; null means "don't use".
+ */
+export function rankVoice(v: Pick<SpeechSynthesisVoice, 'name' | 'lang' | 'localService'>): number | null {
+  const lang = v.lang.replace('_', '-').toLowerCase();
+  if (!lang.startsWith('en')) return null;
+  if (NOVELTY.test(v.name)) return null;
+  const hit = PREFERRED.findIndex((re) => re.test(v.name));
+  const nameScore = hit === -1 ? PREFERRED.length : hit;
+  const langScore = lang === 'en-us' ? 0 : lang === 'en-gb' || lang === 'en-ca' || lang === 'en-au' ? 1 : 2;
+  return langScore * 100 + nameScore;
+}
+
+let cachedVoice: SpeechSynthesisVoice | null = null;
+
+function pickVoice(): SpeechSynthesisVoice | null {
+  let best: SpeechSynthesisVoice | null = null;
+  let bestScore = Infinity;
+  for (const v of window.speechSynthesis.getVoices()) {
+    const score = rankVoice(v);
+    if (score !== null && score < bestScore) {
+      best = v;
+      bestScore = score;
+    }
+  }
+  return best;
+}
+
+function englishVoice(): SpeechSynthesisVoice | null {
+  cachedVoice ??= pickVoice();
+  return cachedVoice;
+}
+
+if (canSpeak()) {
+  // Voices arrive late in Chrome / Edge: pick again once the full list is ready.
+  window.speechSynthesis.addEventListener?.('voiceschanged', () => {
+    cachedVoice = pickVoice();
+  });
+  window.speechSynthesis.getVoices(); // starts loading the list early
 }
 
 /** Speaks English text slowly and clearly. `slow` is extra slow for a second listen. */
@@ -24,8 +71,8 @@ export function speak(text: string, slow = false): void {
     u.voice = voice;
     u.lang = voice.lang;
   }
-  u.rate = slow ? 0.6 : 0.85;
-  u.pitch = 1.05;
+  u.rate = slow ? 0.65 : 0.85;
+  u.pitch = 1; // pitch shifts make natural voices sound artificial
   window.speechSynthesis.speak(u);
 }
 
